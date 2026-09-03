@@ -1,0 +1,417 @@
+openapi: 3.1.0
+info:
+  title: Travel Companion API
+  description: |
+    API contract for the travel planning application (Wave 0 scaffold).
+
+    The recommendation engine is provider-agnostic. The AI provider is selected
+    at runtime via the `AI_PROVIDER` environment variable: `rule` (rule-based,
+    default) or `openai`.
+  version: 0.1.0
+  x-ai-provider: rule|openai
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+tags:
+  - name: Health
+    description: Service liveness and health checks
+  - name: Destinations
+    description: Destination catalogue lookups
+  - name: Trips
+    description: Trip lifecycle management and export
+  - name: Recommendations
+    description: Destination recommendation engine
+  - name: Preferences
+    description: User travel preferences
+paths:
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Liveness probe
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: true
+                example:
+                  status: ok
+  /api/recommend:
+    post:
+      tags:
+        - Recommendations
+      summary: Generate destination recommendations (rule-based)
+      operationId: recommend
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecommendRequest"
+      responses:
+        "200":
+          description: Recommendations generated
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Recommendation"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/recommend/ai:
+    post:
+      tags:
+        - Recommendations
+      summary: Generate destination recommendations via AI provider
+      operationId: recommendAi
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RecommendRequest"
+      responses:
+        "200":
+          description: AI-powered recommendations generated
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Recommendation"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+        "503":
+          description: AI provider unavailable (not configured or API error)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/destinations:
+    get:
+      tags:
+        - Destinations
+      summary: List destination catalogue
+      operationId: listDestinations
+      parameters:
+        - name: region
+          in: query
+          required: false
+          description: Filter destinations by region (e.g. Asia, Europe)
+          schema:
+            type: string
+        - name: season
+          in: query
+          required: false
+          description: Filter destinations by recommended season
+          schema:
+            type: string
+            enum:
+              - spring
+              - summer
+              - autumn
+              - winter
+      responses:
+        "200":
+          description: Destination catalogue
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Destination"
+  /api/trips:
+    post:
+      tags:
+        - Trips
+      summary: Create a new trip
+      operationId: createTrip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Trip"
+      responses:
+        "201":
+          description: Trip created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trip"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+    get:
+      tags:
+        - Trips
+      summary: List all trips
+      operationId: listTrips
+      responses:
+        "200":
+          description: List of trips
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Trip"
+  /api/trips/{id}:
+    delete:
+      tags:
+        - Trips
+      summary: Delete a trip by id
+      operationId: deleteTrip
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Trip deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/trips/{id}/export:
+    get:
+      tags:
+        - Trips
+      summary: Export a trip itinerary
+      operationId: exportTrip
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: format
+          in: query
+          required: false
+          description: Export file format
+          schema:
+            type: string
+            enum:
+              - markdown
+              - ics
+            default: markdown
+      responses:
+        "200":
+          description: Exported itinerary
+          content:
+            text/markdown:
+              schema:
+                type: string
+            text/calendar:
+              schema:
+                type: string
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/preferences:
+    get:
+      tags:
+        - Preferences
+      summary: Get current user preferences
+      operationId: getPreferences
+      responses:
+        "200":
+          description: Current preferences
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Preferences"
+    put:
+      tags:
+        - Preferences
+      summary: Upsert user preferences
+      operationId: upsertPreferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Preferences"
+      responses:
+        "200":
+          description: Preferences updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Preferences"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+components:
+  schemas:
+    Destination:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          description: Unique destination id
+        name:
+          type: string
+          description: Destination name
+        country:
+          type: string
+          description: Country or region name
+        region:
+          type: string
+          description: Geographic region (e.g. Asia, Europe)
+        description:
+          type: string
+        best_season:
+          type: string
+          enum:
+            - spring
+            - summer
+            - autumn
+            - winter
+          description: Recommended visiting season
+        tags:
+          type: array
+          items:
+            type: string
+          description: Interest tags (e.g. food, nature, culture)
+        image_url:
+          type: string
+          format: uri
+    Trip:
+      type: object
+      required:
+        - title
+        - start_date
+        - end_date
+      properties:
+        id:
+          type: integer
+          readOnly: true
+          description: Unique trip id (server-assigned)
+        title:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        destination_id:
+          type: integer
+          description: Optional linked destination from the catalogue
+        notes:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        updated_at:
+          type: string
+          format: date-time
+          readOnly: true
+    RecommendRequest:
+      type: object
+      required:
+        - start_date
+        - end_date
+      properties:
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        origin:
+          type: string
+          description: Departure location
+        budget:
+          type: number
+          description: Maximum budget in local currency
+        interests:
+          type: array
+          items:
+            type: string
+          description: Interest tags to prioritise
+        region:
+          type: string
+          description: Preferred region filter
+        holiday_type:
+          type: string
+          description: Holiday mapping hint (weekend | three_day | obon | golden_week | custom)
+          enum:
+            - weekend
+            - three_day
+            - obon
+            - golden_week
+            - custom
+    Recommendation:
+      type: object
+      required:
+        - destination
+        - score
+      properties:
+        destination:
+          $ref: "#/components/schemas/Destination"
+        score:
+          type: number
+          format: float
+          description: Relevance score (0-100)
+        reason:
+          type: string
+          description: Human-readable explanation of the match
+        matched_interests:
+          type: array
+          items:
+            type: string
+          description: Interests the recommendation matched on
+    Preferences:
+      type: object
+      properties:
+        origin:
+          type: string
+          description: Default departure location
+        interests:
+          type: array
+          items:
+            type: string
+          description: Default interest tags
+        budget:
+          type: number
+          description: Default maximum budget
+        ai_provider:
+          type: string
+          enum:
+            - rule
+            - openai
+          description: Preferred AI provider for /api/recommend/ai
+    Error:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message
+  responses:
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              detail:
+                type: array
+                items:
+                  type: object
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
