@@ -48,6 +48,28 @@
   .budget { color: #047857; font-weight: 600; }
   .notes, .comment { color: #374151; }
   .next { background: #ecfeff; border: 1px solid #a5f3fc; }
+  .timeline { position: relative; padding-left: 44px; }
+  .timeline::before {
+    content: ""; position: absolute; left: 16px; top: 6px; bottom: 6px;
+    width: 4px; border-radius: 4px; background: #e0e7ff; margin-left: -2px;
+  }
+  .tl-item { position: relative; margin-bottom: 22px; }
+  .tl-item:last-child { margin-bottom: 0; }
+  .tl-dot {
+    position: absolute; left: 9px; top: 10px; width: 14px; height: 14px;
+    border-radius: 50%; background: #2563eb; border: 3px solid #fff;
+    box-shadow: 0 0 0 2px #2563eb;
+  }
+  .tl-day { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+  .tl-day h2 { margin: 0; font-size: 1.2rem; color: #2563eb; }
+  .tl-date { color: #6b7280; font-size: .9rem; }
+  .tl-body { display: grid; gap: 10px; }
+  .tl-card {
+    background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 12px;
+    padding: 12px 14px;
+  }
+  .tl-card h3 { margin: 0 0 8px; font-size: .9rem; color: #374151; }
+  .tl-card ul { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
 </style>
 </head>
 <body>
@@ -65,12 +87,47 @@
   <p class='comment'>枫叶季的关西精华游</p>
   <p class='notes'>清水寺・伏見稻荷・道頓堀・黑門市場</p>
 
-  <section class="card links"><h2>交通 (Transport)</h2><ul><li><a class="btn" href="https://www.google.com/maps/dir/?api=1&amp;destination=京都" target="_blank" rel="noopener">交通 (Transport)</a></li>
-<li><a class="btn" href="https://www.japan-rail-pass.com/buy-online" target="_blank" rel="noopener">交通 (Transport)</a></li></ul></section><section class="card links"><h2>住宿 (Hotel)</h2><ul><li><a class="btn" href="https://www.booking.com/searchresults.html?ss=京都" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+  <section class="card timeline"><h2>行程時間線 (Itinerary Timeline)</h2><section class="tl-item"><span class="tl-dot"></span><header class="tl-day"><h2>Day 1</h2><span class="tl-date">2026-11-15</span></header><div class="tl-body"><div class="tl-card trans"><h3>上午交通 (Morning Transport)</h3><ul><li><a class="btn" href="https://www.google.com/maps/dir/?api=1&amp;destination=京都" target="_blank" rel="noopener">交通 (Transport)</a></li>
+<li><a class="btn" href="https://www.japan-rail-pass.com/buy-online" target="_blank" rel="noopener">交通 (Transport)</a></li></ul></div><div class="tl-card sights"><h3>下午景點 (Afternoon Attractions)</h3><ul><li><a class="btn" href="https://www.google.com/maps/search/京都" target="_blank" rel="noopener">景點 (Attractions)</a></li>
+<li><a class="btn" href="https://www.google.com/maps/search/?api=1&amp;query=35.011600,135.768100" target="_blank" rel="noopener">景點 (Attractions)</a></li></ul></div><div class="tl-card hotel"><h3>晚上酒店 (Evening Hotel)</h3><ul><li><a class="btn" href="https://www.booking.com/searchresults.html?ss=京都" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
 <li><a class="btn" href="https://hoshinoresorts.com/" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
 <li><a class="btn" href="https://www.jalan.net/" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
-<li><a class="btn" href="https://travel.rakuten.co.jp/" target="_blank" rel="noopener">住宿 (Hotel)</a></li></ul></section><section class="card links"><h2>景點 (Attractions)</h2><ul><li><a class="btn" href="https://www.google.com/maps/search/京都" target="_blank" rel="noopener">景點 (Attractions)</a></li>
-<li><a class="btn" href="https://www.google.com/maps/search/?api=1&amp;query=35.011600,135.768100" target="_blank" rel="noopener">景點 (Attractions)</a></li></ul></section>
+<li><a class="btn" href="https://travel.rakuten.co.jp/" target="_blank" rel="noopener">住宿 (Hotel)</a></li></ul></div></div></section><section class="tl-item"><span class="tl-dot"></span><header class="tl-day"><h2>Day 2</h2><span class="tl-date">2026-11-16</span></header><div class="tl-body"><div class="tl-card trans"><h3>上午交通 (Morning Transport)</h3><ul><li><a class="btn" href="https://www.google.com/maps/dir/?api=1&amp;destination=京都" target="_blank" rel="noopener">交通 (Transport)</a></li>
+<li><a class="btn" href="https://www.japan-rail-pass.com/buy-online" target="_blank" rel="noopener">交通 (Transport)</a></li></ul></div><div class="tl-card sights"><h3>下午景點 (Afternoon Attractions)</h3><ul><li><a class="btn" href="https://www.google.com/maps/search/京都" target="_blank" rel="noopener">景點 (Attractions)</a></li>
+<li><a class="btn" href="https://www.google.com/maps/search/?api=1&amp;query=35.011600,135.768100" target="_blank" rel="noopener">景點 (Attractions)</a></li></ul></div><div class="tl-card hotel"><h3>晚上酒店 (Evening Hotel)</h3><ul><li><a class="btn" href="https://www.booking.com/searchresults.html?ss=京都" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://hoshinoresorts.com/" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://www.jalan.net/" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://travel.rakuten.co.jp/" target="_blank" rel="noopener">住宿 (Hotel)</a></li></ul></div></div></section><section class="tl-item"><span class="tl-dot"></span><header class="tl-day"><h2>Day 3</h2><span class="tl-date">2026-11-17</span></header><div class="tl-body"><div class="tl-card trans"><h3>上午交通 (Morning Transport)</h3><ul><li><a class="btn" href="https://www.google.com/maps/dir/?api=1&amp;destination=京都" target="_blank" rel="noopener">交通 (Transport)</a></li>
+<li><a class="btn" href="https://www.japan-rail-pass.com/buy-online" target="_blank" rel="noopener">交通 (Transport)</a></li></ul></div><div class="tl-card sights"><h3>下午景點 (Afternoon Attractions)</h3><ul><li><a class="btn" href="https://www.google.com/maps/search/京都" target="_blank" rel="noopener">景點 (Attractions)</a></li>
+<li><a class="btn" href="https://www.google.com/maps/search/?api=1&amp;query=35.011600,135.768100" target="_blank" rel="noopener">景點 (Attractions)</a></li></ul></div><div class="tl-card hotel"><h3>晚上酒店 (Evening Hotel)</h3><ul><li><a class="btn" href="https://www.booking.com/searchresults.html?ss=京都" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://hoshinoresorts.com/" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://www.jalan.net/" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://travel.rakuten.co.jp/" target="_blank" rel="noopener">住宿 (Hotel)</a></li></ul></div></div></section><section class="tl-item"><span class="tl-dot"></span><header class="tl-day"><h2>Day 4</h2><span class="tl-date">2026-11-18</span></header><div class="tl-body"><div class="tl-card trans"><h3>上午交通 (Morning Transport)</h3><ul><li><a class="btn" href="https://www.google.com/maps/dir/?api=1&amp;destination=京都" target="_blank" rel="noopener">交通 (Transport)</a></li>
+<li><a class="btn" href="https://www.japan-rail-pass.com/buy-online" target="_blank" rel="noopener">交通 (Transport)</a></li></ul></div><div class="tl-card sights"><h3>下午景點 (Afternoon Attractions)</h3><ul><li><a class="btn" href="https://www.google.com/maps/search/京都" target="_blank" rel="noopener">景點 (Attractions)</a></li>
+<li><a class="btn" href="https://www.google.com/maps/search/?api=1&amp;query=35.011600,135.768100" target="_blank" rel="noopener">景點 (Attractions)</a></li></ul></div><div class="tl-card hotel"><h3>晚上酒店 (Evening Hotel)</h3><ul><li><a class="btn" href="https://www.booking.com/searchresults.html?ss=京都" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://hoshinoresorts.com/" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://www.jalan.net/" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://travel.rakuten.co.jp/" target="_blank" rel="noopener">住宿 (Hotel)</a></li></ul></div></div></section><section class="tl-item"><span class="tl-dot"></span><header class="tl-day"><h2>Day 5</h2><span class="tl-date">2026-11-19</span></header><div class="tl-body"><div class="tl-card trans"><h3>上午交通 (Morning Transport)</h3><ul><li><a class="btn" href="https://www.google.com/maps/dir/?api=1&amp;destination=京都" target="_blank" rel="noopener">交通 (Transport)</a></li>
+<li><a class="btn" href="https://www.japan-rail-pass.com/buy-online" target="_blank" rel="noopener">交通 (Transport)</a></li></ul></div><div class="tl-card sights"><h3>下午景點 (Afternoon Attractions)</h3><ul><li><a class="btn" href="https://www.google.com/maps/search/京都" target="_blank" rel="noopener">景點 (Attractions)</a></li>
+<li><a class="btn" href="https://www.google.com/maps/search/?api=1&amp;query=35.011600,135.768100" target="_blank" rel="noopener">景點 (Attractions)</a></li></ul></div><div class="tl-card hotel"><h3>晚上酒店 (Evening Hotel)</h3><ul><li><a class="btn" href="https://www.booking.com/searchresults.html?ss=京都" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://hoshinoresorts.com/" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://www.jalan.net/" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://travel.rakuten.co.jp/" target="_blank" rel="noopener">住宿 (Hotel)</a></li></ul></div></div></section><section class="tl-item"><span class="tl-dot"></span><header class="tl-day"><h2>Day 6</h2><span class="tl-date">2026-11-20</span></header><div class="tl-body"><div class="tl-card trans"><h3>上午交通 (Morning Transport)</h3><ul><li><a class="btn" href="https://www.google.com/maps/dir/?api=1&amp;destination=京都" target="_blank" rel="noopener">交通 (Transport)</a></li>
+<li><a class="btn" href="https://www.japan-rail-pass.com/buy-online" target="_blank" rel="noopener">交通 (Transport)</a></li></ul></div><div class="tl-card sights"><h3>下午景點 (Afternoon Attractions)</h3><ul><li><a class="btn" href="https://www.google.com/maps/search/京都" target="_blank" rel="noopener">景點 (Attractions)</a></li>
+<li><a class="btn" href="https://www.google.com/maps/search/?api=1&amp;query=35.011600,135.768100" target="_blank" rel="noopener">景點 (Attractions)</a></li></ul></div><div class="tl-card hotel"><h3>晚上酒店 (Evening Hotel)</h3><ul><li><a class="btn" href="https://www.booking.com/searchresults.html?ss=京都" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://hoshinoresorts.com/" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://www.jalan.net/" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://travel.rakuten.co.jp/" target="_blank" rel="noopener">住宿 (Hotel)</a></li></ul></div></div></section><section class="tl-item"><span class="tl-dot"></span><header class="tl-day"><h2>Day 7</h2><span class="tl-date">2026-11-21</span></header><div class="tl-body"><div class="tl-card trans"><h3>上午交通 (Morning Transport)</h3><ul><li><a class="btn" href="https://www.google.com/maps/dir/?api=1&amp;destination=京都" target="_blank" rel="noopener">交通 (Transport)</a></li>
+<li><a class="btn" href="https://www.japan-rail-pass.com/buy-online" target="_blank" rel="noopener">交通 (Transport)</a></li></ul></div><div class="tl-card sights"><h3>下午景點 (Afternoon Attractions)</h3><ul><li><a class="btn" href="https://www.google.com/maps/search/京都" target="_blank" rel="noopener">景點 (Attractions)</a></li>
+<li><a class="btn" href="https://www.google.com/maps/search/?api=1&amp;query=35.011600,135.768100" target="_blank" rel="noopener">景點 (Attractions)</a></li></ul></div><div class="tl-card hotel"><h3>晚上酒店 (Evening Hotel)</h3><ul><li><a class="btn" href="https://www.booking.com/searchresults.html?ss=京都" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://hoshinoresorts.com/" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://www.jalan.net/" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://travel.rakuten.co.jp/" target="_blank" rel="noopener">住宿 (Hotel)</a></li></ul></div></div></section><section class="tl-item"><span class="tl-dot"></span><header class="tl-day"><h2>Day 8</h2><span class="tl-date">2026-11-22</span></header><div class="tl-body"><div class="tl-card trans"><h3>上午交通 (Morning Transport)</h3><ul><li><a class="btn" href="https://www.google.com/maps/dir/?api=1&amp;destination=京都" target="_blank" rel="noopener">交通 (Transport)</a></li>
+<li><a class="btn" href="https://www.japan-rail-pass.com/buy-online" target="_blank" rel="noopener">交通 (Transport)</a></li></ul></div><div class="tl-card sights"><h3>下午景點 (Afternoon Attractions)</h3><ul><li><a class="btn" href="https://www.google.com/maps/search/京都" target="_blank" rel="noopener">景點 (Attractions)</a></li>
+<li><a class="btn" href="https://www.google.com/maps/search/?api=1&amp;query=35.011600,135.768100" target="_blank" rel="noopener">景點 (Attractions)</a></li></ul></div><div class="tl-card hotel"><h3>晚上酒店 (Evening Hotel)</h3><ul><li><a class="btn" href="https://www.booking.com/searchresults.html?ss=京都" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://hoshinoresorts.com/" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://www.jalan.net/" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://travel.rakuten.co.jp/" target="_blank" rel="noopener">住宿 (Hotel)</a></li></ul></div></div></section></section>
 
   <section class="card next"><h2>下次旅程 (Next Trip)</h2><p>東京初春賞樱 — 2027-03-25</p></section>
 </div>

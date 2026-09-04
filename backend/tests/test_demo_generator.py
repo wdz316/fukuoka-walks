@@ -58,6 +58,16 @@ def test_generated_demo_has_countdown_links_and_map_placeholder():
     assert "__MAP_POINT__" in html
 
 
+def test_generated_demo_uses_timeline_layout_per_day():
+    _run_generator()
+    html = OUT.read_text(encoding="utf-8")
+    # 2026-11-15 -> 2026-11-22 is 8 days
+    assert html.count('class="tl-item"') == 8
+    assert "行程時間線" in html
+    assert "Day 1" in html and "Day 8" in html
+    assert "上午交通" in html and "下午景點" in html and "晚上酒店" in html
+
+
 def test_generated_demo_includes_next_trip_teaser():
     _run_generator()
     html = OUT.read_text(encoding="utf-8")

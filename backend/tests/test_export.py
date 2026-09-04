@@ -84,6 +84,29 @@ def test_render_includes_three_booking_link_anchor_groups():
         assert marker in html
 
 
+def test_render_timeline_has_day_sections_matching_days():
+    trip = _Trip(start_date=date(2026, 3, 20), end_date=date(2026, 3, 27))
+    html = render_trip_html(trip, _Destination())
+    num_days = (date(2026, 3, 27) - date(2026, 3, 20)).days + 1
+    # one timeline item per day
+    assert html.count('class="tl-item"') == num_days
+    assert "行程時間線" in html
+    assert "Day 1" in html and f"Day {num_days}" in html
+    assert "Day 1" in html and html.index("Day 1") < html.index("Day 2")
+
+
+def test_render_timeline_each_day_has_transport_sights_hotel():
+    html = render_trip_html(_Trip(), _Destination())
+    # default order within each day: morning transport / afternoon sights / evening hotel
+    morning = html.index("上午交通")
+    afternoon = html.index("下午景點")
+    evening = html.index("晚上酒店")
+    assert morning < afternoon < evening
+    assert html.count("上午交通") >= 1
+    assert html.count("下午景點") >= 1
+    assert html.count("晚上酒店") >= 1
+
+
 def test_render_includes_leaflet_map_when_coordinates_present():
     html = render_trip_html(_Trip(), _Destination(lat=35.6762, lng=139.6503))
     assert "leaflet" in html
