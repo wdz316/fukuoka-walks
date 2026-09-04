@@ -48,3 +48,12 @@ def test_window_titles() -> None:
     """Both backend and frontend windows must have identifiable titles."""
     assert "Travel Companion 后端" in START_TEXT, "backend window title missing"
     assert "Travel Companion 前端" in START_TEXT, "frontend window title missing"
+
+
+def test_crlf_line_endings() -> None:
+    """start.bat must use CRLF line endings — cmd.exe misparses LF-only batch files."""
+    raw = START_BAT.read_bytes()
+    total_lf = raw.count(b"\n")
+    crlf = raw.count(b"\r\n")
+    assert total_lf > 0, "start.bat has no lines"
+    assert crlf == total_lf, f"start.bat must be pure CRLF (crlf={crlf}, lf={total_lf})"
