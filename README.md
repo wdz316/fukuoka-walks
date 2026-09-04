@@ -39,11 +39,13 @@ backend\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
 
 ### 2. Seed the database
 
-Creates the SQLite DB at `backend/data/app.db` and idempotently loads 50+
-destinations. Run from the monorepo root:
+Creates the SQLite DB at `backend/data/app.db` and idempotently loads 62
+destinations (incl. Kyoto/Osaka with attractions & hotels). Run from the
+monorepo root (the DB path is relative to the CWD, so do **not** `cd` away):
 
 ```powershell
-backend\.venv\Scripts\python.exe -m app.seed --app-dir backend
+$env:PYTHONPATH="backend"
+backend\.venv\Scripts\python.exe -m app.seed
 ```
 
 (Or, equivalently: `cd backend; python -m app.seed`.)

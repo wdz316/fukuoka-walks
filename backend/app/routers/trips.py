@@ -4,6 +4,7 @@ GET /api/trips/{id}/export  (single-file HTML itinerary export).
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
@@ -16,6 +17,30 @@ from app.models import Destination, Trip
 from app.schemas import Trip as TripSchema, TripIn
 
 router = APIRouter(prefix="/api/trips", tags=["Trips"])
+
+
+def _as_list(raw) -> list[dict]:
+    """Deserialize a JSON-string column (attractions/hotels) into a list."""
+    if not raw:
+        return []
+    if isinstance(raw, list):
+        return raw
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            return []
+        return parsed if isinstance(parsed, list) else []
+    return []
+
+
+def _prepare_destination(destination: Destination | None) -> Destination | None:
+    """Normalize JSON-string columns so the exporter sees Python lists."""
+    if destination is None:
+        return None
+    destination.attractions = _as_list(destination.attractions)
+    destination.hotels = _as_list(destination.hotels)
+    return destination
 
 
 def _serialize(t: Trip) -> dict:
@@ -98,7 +123,7 @@ def export_trip(trip_id: int, db: Session = Depends(get_db)):
     destination: Destination | None = None
     if trip.destination_id is not None:
         destination = db.get(Destination, trip.destination_id)
-    html = render_trip_html(trip, destination)
+    html = render_trip_html(trip, _prepare_destination(destination))
     return Response(
         content=html,
         media_type="text/html; charset=utf-8",

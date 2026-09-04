@@ -93,6 +93,32 @@ def test_export_returns_html_itinerary(client: TestClient) -> None:
     assert missing.status_code == 404
 
 
+def test_export_renders_destination_attractions_hotels_from_db(client: TestClient) -> None:
+    """Export must render attractions/hotels stored as JSON strings in the DB."""
+    create = client.post(
+        "/api/trips",
+        json={
+            "title": "Kyoto Temples",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-04",
+            "destination_id": 2,  # Kyoto in the seeded catalogue
+            "notes": "Temple walk",
+        },
+    )
+    assert create.status_code == 201
+    trip_id = create.json()["id"]
+    resp = client.get(f"/api/trips/{trip_id}/export")
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/html")
+    body = resp.text
+    # DB-stored attraction/hotel names rendered in the map points
+    assert "伏見稲荷大社" in body
+    assert "清水寺" in body
+    assert "祇園旅館" in body
+    assert 'id="countdown"' in body
+    assert "setInterval" in body
+
+
 def test_destinations_list(client: TestClient) -> None:
     resp = client.get("/api/destinations")
     assert resp.status_code == 200
