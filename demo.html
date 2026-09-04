@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>京都大阪紅葉之旅 | 京都</title>
+<meta name="description" content="京都大阪紅葉之旅 | 京都 — 旅程分享">
+<meta property="og:title" content="京都大阪紅葉之旅 | 京都">
+<meta property="og:description" content="京都大阪紅葉之旅 | 京都 — 旅程分享">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="京都大阪紅葉之旅 | 京都">
+<meta name="twitter:description" content="京都大阪紅葉之旅 | 京都 — 旅程分享">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Hiragino Kaku Gothic ProN", "Noto Sans", sans-serif;
+    background: #f4f6f8; color: #1f2937; line-height: 1.6;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 16px; }
+  header.hero {
+    background: linear-gradient(135deg, #2563eb, #7c3aed);
+    color: #fff; border-radius: 16px; padding: 24px; margin-bottom: 16px;
+  }
+  header.hero h1 { margin: 0 0 8px; font-size: 1.6rem; }
+  header.hero .sub { opacity: .9; }
+  #countdown {
+    font-size: 1.9rem; font-weight: 700; margin-top: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+  .card {
+    background: #fff; border-radius: 16px; padding: 20px;
+    margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  .card h2 { margin-top: 0; font-size: 1.15rem; }
+  .links ul { list-style: none; padding: 0; margin: 0; }
+  .links li { margin-bottom: 8px; }
+  .btn {
+    display: block; text-align: center; padding: 12px; border-radius: 10px;
+    background: #eef2ff; color: #2563eb; font-weight: 600;
+    text-decoration: none; border: 1px solid #c7d2fe;
+  }
+  .btn:hover { background: #e0e7ff; }
+  .map-canvas { height: 320px; border-radius: 12px; }
+  .map-fallback { color: #6b7280; text-align: center; padding-top: 130px; }
+  .budget { color: #047857; font-weight: 600; }
+  .notes, .comment { color: #374151; }
+  .next { background: #ecfeff; border: 1px solid #a5f3fc; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <h1>京都大阪紅葉之旅</h1>
+    <div class="sub">京都 · 8 天</div>
+    <div class="sub">2026-11-15 → 2026-11-22</div>
+    <p class='budget'>預算 Budget: ¥180,000</p>
+    <div id="countdown">—</div>
+  </header>
+
+  <section class="card map"><h2>地圖 (Map)</h2><div id="map" class="map-canvas"></div></section><script>window.__MAP_POINT__={"lat": 35.0116, "lng": 135.7681, "name": "\u4eac\u90fd"};</script>
+
+  <p class='comment'>枫叶季的关西精华游</p>
+  <p class='notes'>清水寺・伏見稻荷・道頓堀・黑門市場</p>
+
+  <section class="card links"><h2>交通 (Transport)</h2><ul><li><a class="btn" href="https://www.google.com/maps/dir/?api=1&amp;destination=京都" target="_blank" rel="noopener">交通 (Transport)</a></li>
+<li><a class="btn" href="https://www.japan-rail-pass.com/buy-online" target="_blank" rel="noopener">交通 (Transport)</a></li></ul></section><section class="card links"><h2>住宿 (Hotel)</h2><ul><li><a class="btn" href="https://www.booking.com/searchresults.html?ss=京都" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://hoshinoresorts.com/" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://www.jalan.net/" target="_blank" rel="noopener">住宿 (Hotel)</a></li>
+<li><a class="btn" href="https://travel.rakuten.co.jp/" target="_blank" rel="noopener">住宿 (Hotel)</a></li></ul></section><section class="card links"><h2>景點 (Attractions)</h2><ul><li><a class="btn" href="https://www.google.com/maps/search/京都" target="_blank" rel="noopener">景點 (Attractions)</a></li>
+<li><a class="btn" href="https://www.google.com/maps/search/?api=1&amp;query=35.011600,135.768100" target="_blank" rel="noopener">景點 (Attractions)</a></li></ul></section>
+
+  <section class="card next"><h2>下次旅程 (Next Trip)</h2><p>東京初春賞樱 — 2027-03-25</p></section>
+</div>
+<script>
+window.addEventListener('DOMContentLoaded', function () {
+  var end = 1795305600000;
+  var el = document.getElementById('countdown');
+  if (!el) return;
+  function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  function tick() {
+    var diff = end - Date.now();
+    if (diff < 0) { el.textContent = '旅程開始了！Trip started!'; return; }
+    var s = Math.floor(diff / 1000);
+    var d = Math.floor(s / 86400); s -= d * 86400;
+    var h = Math.floor(s / 3600); s -= h * 3600;
+    var m = Math.floor(s / 60); s -= m * 60;
+    el.textContent = d + ' 天 ' + pad(h) + ':' + pad(m) + ':' + pad(s);
+  }
+  tick();
+  setInterval(tick, 1000);
+});
+</script>
+<script>
+window.addEventListener('DOMContentLoaded', function () {
+  var point = window.__MAP_POINT__;
+  var el = document.getElementById('map');
+  if (!el || typeof L === 'undefined' || !point) return;
+  var map = L.map(el).setView([point.lat, point.lng], 12);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+  L.marker([point.lat, point.lng]).addTo(map)
+    .bindPopup('<b>' + point.name + '</b>').openPopup();
+});
+</script>
+</body>
+</html>
