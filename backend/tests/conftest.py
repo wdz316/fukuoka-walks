@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+import app.models  # noqa: F401  # register tables on Base before create_all
 from app.db import Base, get_db
 from app.main import create_app
 

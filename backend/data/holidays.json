@@ -1,0 +1,110 @@
+[
+  {
+    "name": "New Year's Day",
+    "country": "Japan",
+    "date": "2026-01-01",
+    "type": "national"
+  },
+  {
+    "name": "Coming of Age Day",
+    "country": "Japan",
+    "date": "2026-01-12",
+    "type": "national"
+  },
+  {
+    "name": "National Foundation Day",
+    "country": "Japan",
+    "date": "2026-02-11",
+    "type": "national"
+  },
+  {
+    "name": "Emperor's Birthday",
+    "country": "Japan",
+    "date": "2026-02-23",
+    "type": "national"
+  },
+  {
+    "name": "Vernal Equinox Day",
+    "country": "Japan",
+    "date": "2026-03-20",
+    "type": "national"
+  },
+  {
+    "name": "Showa Day",
+    "country": "Japan",
+    "date": "2026-04-29",
+    "type": "national"
+  },
+  {
+    "name": "Constitution Memorial Day",
+    "country": "Japan",
+    "date": "2026-05-03",
+    "type": "national"
+  },
+  {
+    "name": "Greenery Day",
+    "country": "Japan",
+    "date": "2026-05-04",
+    "type": "national"
+  },
+  {
+    "name": "Children's Day",
+    "country": "Japan",
+    "date": "2026-05-05",
+    "type": "national"
+  },
+  {
+    "name": "Marine Day",
+    "country": "Japan",
+    "date": "2026-07-20",
+    "type": "national"
+  },
+  {
+    "name": "Mountain Day",
+    "country": "Japan",
+    "date": "2026-08-11",
+    "type": "national"
+  },
+  {
+    "name": "Respect for the Aged Day",
+    "country": "Japan",
+    "date": "2026-09-21",
+    "type": "national"
+  },
+  {
+    "name": "Autumnal Equinox Day",
+    "country": "Japan",
+    "date": "2026-09-23",
+    "type": "national"
+  },
+  {
+    "name": "Sports Day",
+    "country": "Japan",
+    "date": "2026-10-12",
+    "type": "national"
+  },
+  {
+    "name": "Culture Day",
+    "country": "Japan",
+    "date": "2026-11-03",
+    "type": "national"
+  },
+  {
+    "name": "Labor Thanksgiving Day",
+    "country": "Japan",
+    "date": "2026-11-23",
+    "type": "national"
+  },
+  {
+    "name": "Chinese New Year",
+    "country": "China",
+    "date": "2026-02-17",
+    "type": "international"
+  },
+  {
+    "name": "Songkran (Thai New Year)",
+    "country": "Thailand",
+    "date": "2026-04-13",
+    "type": "international"
+  }
+]
