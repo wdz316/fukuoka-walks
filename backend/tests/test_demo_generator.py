@@ -55,7 +55,21 @@ def test_generated_demo_has_countdown_links_and_map_placeholder():
     assert "jalan.net" in html
     assert "/maps/dir" in html
     assert "leaflet" in html
-    assert "__MAP_POINT__" in html
+    assert "__MAP_POINTS__" in html
+
+
+def test_generated_demo_has_multi_point_map_with_route():
+    _run_generator()
+    html = OUT.read_text(encoding="utf-8")
+    assert "__MAP_POINTS__" in html
+    assert "清水寺" in html
+    assert "伏見稲荷" in html
+    assert "道頓堀" in html
+    assert "祇園旅館" in html
+    assert "難波ホテル" in html
+    assert "L.marker" in html
+    assert "L.polyline" in html
+    assert "fitBounds" in html
 
 
 def test_generated_demo_uses_timeline_layout_per_day():

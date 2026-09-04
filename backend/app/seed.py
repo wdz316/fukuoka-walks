@@ -16,6 +16,21 @@ def _load_json(filename: str) -> list[dict]:
         return json.load(f)
 
 
+def _serialize_attractions_hotels(row: dict) -> tuple[str | None, str | None]:
+    """Serialize attractions and hotels lists to JSON strings for the DB."""
+    attractions_raw = row.get("attractions") or []
+    hotels_raw = row.get("hotels") or []
+    attractions = (
+        json.dumps(attractions_raw, ensure_ascii=False)
+        if attractions_raw
+        else None
+    )
+    hotels = (
+        json.dumps(hotels_raw, ensure_ascii=False) if hotels_raw else None
+    )
+    return attractions, hotels
+
+
 def seed_destinations(db: Session) -> int:
     rows = _load_json("destinations.json")
     created = 0
@@ -25,6 +40,7 @@ def seed_destinations(db: Session) -> int:
         )
         if exists is not None:
             continue
+        attractions_json, hotels_json = _serialize_attractions_hotels(row)
         db.add(
             Destination(
                 name=row["name"],
@@ -34,6 +50,8 @@ def seed_destinations(db: Session) -> int:
                 best_season=row.get("best_season"),
                 lat=row.get("lat"),
                 lng=row.get("lng"),
+                attractions=attractions_json,
+                hotels=hotels_json,
                 cost_level_1=row.get("cost_level_1"),
                 cost_level_2=row.get("cost_level_2"),
                 cost_level_3=row.get("cost_level_3"),

@@ -142,22 +142,43 @@ def _timeline(trip, destination) -> str:
 
 
 def _map_section(destination) -> str:
-    lat = getattr(destination, "lat", None) if destination is not None else None
-    lng = getattr(destination, "lng", None) if destination is not None else None
-    name = getattr(destination, "name", "Destination") if destination is not None else "Destination"
-    if lat is None or lng is None:
-        # Offline/no-coordinate fallback: keep a styled placeholder so layout
-        # stays intact even when tiles cannot load.
+    if destination is None:
         return (
             '<section class="card map"><h2>地圖 (Map)</h2>'
             '<div id="map" class="map-canvas"><p class="map-fallback">'
             "地圖加載中 / Map loading…</p></div></section>"
         )
+
+    attractions = getattr(destination, "attractions", None) or []
+    hotels = getattr(destination, "hotels", None) or []
+    map_points_attr = getattr(destination, "map_points", None) or []
+
+    all_points = list(map_points_attr)
+    if not all_points:
+        for a in attractions:
+            all_points.append({
+                "name": a["name"], "lat": a["lat"], "lng": a["lng"],
+                "type": "attraction", "day": a.get("day"),
+            })
+        for h in hotels:
+            all_points.append({
+                "name": h["name"], "lat": h["lat"], "lng": h["lng"],
+                "type": "hotel", "day": h.get("day"),
+            })
+    all_points.sort(key=lambda p: (p.get("day") or 9999))
+
+    if not all_points:
+        return (
+            '<section class="card map"><h2>地圖 (Map)</h2>'
+            '<div id="map" class="map-canvas"><p class="map-fallback">'
+            "地圖加載中 / Map loading…</p></div></section>"
+        )
+
     return (
         '<section class="card map"><h2>地圖 (Map)</h2>'
         '<div id="map" class="map-canvas"></div></section>'
-    ) + "<script>window.__MAP_POINT__=" + json.dumps(
-        {"lat": lat, "lng": lng, "name": name}
+    ) + "<script>window.__MAP_POINTS__=" + json.dumps(
+        all_points, ensure_ascii=False
     ) + ";</script>"
 
 
@@ -190,16 +211,32 @@ def _init_map_script() -> str:
     return (
         "<script>\n"
         "window.addEventListener('DOMContentLoaded', function () {\n"
-        "  var point = window.__MAP_POINT__;\n"
+        "  var points = window.__MAP_POINTS__;\n"
         "  var el = document.getElementById('map');\n"
-        "  if (!el || typeof L === 'undefined' || !point) return;\n"
-        "  var map = L.map(el).setView([point.lat, point.lng], 12);\n"
+        "  if (!el || typeof L === 'undefined' || !points || !points.length) return;\n"
+        "  var map = L.map(el);\n"
         "  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {\n"
         "    maxZoom: 19,\n"
         "    attribution: '&copy; OpenStreetMap contributors'\n"
         "  }).addTo(map);\n"
-        "  L.marker([point.lat, point.lng]).addTo(map)\n"
-        "    .bindPopup('<b>' + point.name + '</b>').openPopup();\n"
+        "  var routeCoords = [];\n"
+        "  points.forEach(function (p) {\n"
+        "    var isHotel = p.type === 'hotel';\n"
+        "    var color = isHotel ? '#dc2626' : '#2563eb';\n"
+        "    var icon = L.divIcon({\n"
+        "      className: '',\n"
+        "      html: '<div style=\"background:' + color + ';width:14px;height:14px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 3px rgba(0,0,0,.4);\"></div>',\n"
+        "      iconSize: [14, 14],\n"
+        "      iconAnchor: [7, 7]\n"
+        "    });\n"
+        "    L.marker([p.lat, p.lng], {icon: icon}).addTo(map)\n"
+        "      .bindPopup('<b>' + (isHotel ? '🏨 ' : '📍 ') + p.name + '</b>' + (p.day ? '<br>Day ' + p.day : ''));\n"
+        "    routeCoords.push([p.lat, p.lng]);\n"
+        "  });\n"
+        "  if (routeCoords.length > 1) {\n"
+        "    L.polyline(routeCoords, {color: '#2563eb', weight: 3, dashArray: '8,6'}).addTo(map);\n"
+        "  }\n"
+        "  map.fitBounds(routeCoords, {padding: [30, 30]});\n"
         "});\n"
         "</script>"
     )
@@ -255,7 +292,30 @@ def render_trip_html(trip, destination=None, next_trip=None) -> str:
 
     point_lat = getattr(destination, "lat", None) if destination is not None else None
     point_lng = getattr(destination, "lng", None) if destination is not None else None
-    map_init_script = _init_map_script() if point_lat is not None and point_lng is not None else ""
+
+    attractions = getattr(destination, "attractions", None) or []
+    hotels = getattr(destination, "hotels", None) or []
+    map_points_attr = getattr(destination, "map_points", None) or []
+
+    all_points = list(map_points_attr)
+    if not all_points:
+        for a in attractions:
+            all_points.append({
+                "name": a["name"], "lat": a["lat"], "lng": a["lng"],
+                "type": "attraction", "day": a.get("day"),
+            })
+        for h in hotels:
+            all_points.append({
+                "name": h["name"], "lat": h["lat"], "lng": h["lng"],
+                "type": "hotel", "day": h.get("day"),
+            })
+    all_points.sort(key=lambda p: (p.get("day") or 9999))
+
+    if not all_points and point_lat is not None and point_lng is not None:
+        all_points = [{"name": dest_name, "lat": point_lat, "lng": point_lng,
+                        "type": "attraction", "day": None}]
+
+    map_init_script = _init_map_script() if all_points else ""
 
     notes_html = ""
     if notes:

@@ -82,7 +82,7 @@
     <div id="countdown">—</div>
   </header>
 
-  <section class="card map"><h2>地圖 (Map)</h2><div id="map" class="map-canvas"></div></section><script>window.__MAP_POINT__={"lat": 35.0116, "lng": 135.7681, "name": "\u4eac\u90fd"};</script>
+  <section class="card map"><h2>地圖 (Map)</h2><div id="map" class="map-canvas"></div></section><script>window.__MAP_POINTS__=[{"name": "伏見稲荷大社", "lat": 34.9671, "lng": 135.7727, "type": "attraction", "day": 1}, {"name": "清水寺", "lat": 34.9949, "lng": 135.785, "type": "attraction", "day": 1}, {"name": "祇園旅館 (Gion Hotel)", "lat": 35.0036, "lng": 135.7753, "type": "hotel", "day": 1}, {"name": "二条城", "lat": 35.0142, "lng": 135.7483, "type": "attraction", "day": 2}, {"name": "金閣寺", "lat": 35.0394, "lng": 135.7292, "type": "attraction", "day": 2}, {"name": "嵐山竹林", "lat": 35.017, "lng": 135.6713, "type": "attraction", "day": 3}, {"name": "難波ホテル (Namba Hotel)", "lat": 34.6658, "lng": 135.501, "type": "hotel", "day": 3}, {"name": "道頓堀", "lat": 34.6687, "lng": 135.5013, "type": "attraction", "day": 4}, {"name": "大阪城", "lat": 34.6873, "lng": 135.5259, "type": "attraction", "day": 5}];</script>
 
   <p class='comment'>枫叶季的关西精华游</p>
   <p class='notes'>清水寺・伏見稻荷・道頓堀・黑門市場</p>
@@ -152,16 +152,32 @@ window.addEventListener('DOMContentLoaded', function () {
 </script>
 <script>
 window.addEventListener('DOMContentLoaded', function () {
-  var point = window.__MAP_POINT__;
+  var points = window.__MAP_POINTS__;
   var el = document.getElementById('map');
-  if (!el || typeof L === 'undefined' || !point) return;
-  var map = L.map(el).setView([point.lat, point.lng], 12);
+  if (!el || typeof L === 'undefined' || !points || !points.length) return;
+  var map = L.map(el);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
-  L.marker([point.lat, point.lng]).addTo(map)
-    .bindPopup('<b>' + point.name + '</b>').openPopup();
+  var routeCoords = [];
+  points.forEach(function (p) {
+    var isHotel = p.type === 'hotel';
+    var color = isHotel ? '#dc2626' : '#2563eb';
+    var icon = L.divIcon({
+      className: '',
+      html: '<div style="background:' + color + ';width:14px;height:14px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 3px rgba(0,0,0,.4);"></div>',
+      iconSize: [14, 14],
+      iconAnchor: [7, 7]
+    });
+    L.marker([p.lat, p.lng], {icon: icon}).addTo(map)
+      .bindPopup('<b>' + (isHotel ? '🏨 ' : '📍 ') + p.name + '</b>' + (p.day ? '<br>Day ' + p.day : ''));
+    routeCoords.push([p.lat, p.lng]);
+  });
+  if (routeCoords.length > 1) {
+    L.polyline(routeCoords, {color: '#2563eb', weight: 3, dashArray: '8,6'}).addTo(map);
+  }
+  map.fitBounds(routeCoords, {padding: [30, 30]});
 });
 </script>
 </body>

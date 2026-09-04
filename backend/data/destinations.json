@@ -22,6 +22,17 @@
     "best_season": "spring",
     "lat": 35.0116,
     "lng": 135.7681,
+    "attractions": [
+      {"name": "伏見稲荷大社", "lat": 34.9671, "lng": 135.7727, "day": 1},
+      {"name": "清水寺", "lat": 34.9949, "lng": 135.7850, "day": 1},
+      {"name": "二条城", "lat": 35.0142, "lng": 135.7483, "day": 2},
+      {"name": "金閣寺", "lat": 35.0394, "lng": 135.7292, "day": 2},
+      {"name": "嵐山竹林", "lat": 35.0170, "lng": 135.6713, "day": 3}
+    ],
+    "hotels": [
+      {"name": "祇園旅館 (Gion Hotel)", "lat": 35.0036, "lng": 135.7753, "day": 1},
+      {"name": "京都駅前ホテル (Kyoto Station Hotel)", "lat": 34.9858, "lng": 135.7588, "day": 2}
+    ],
     "cost_level_1": 7,
     "cost_level_2": 6,
     "cost_level_3": 4,
@@ -37,6 +48,17 @@
     "best_season": "autumn",
     "lat": 34.6937,
     "lng": 135.5023,
+    "attractions": [
+      {"name": "道頓堀", "lat": 34.6687, "lng": 135.5013, "day": 4},
+      {"name": "大阪城", "lat": 34.6873, "lng": 135.5259, "day": 4},
+      {"name": "黑門市場", "lat": 34.6630, "lng": 135.5066, "day": 5},
+      {"name": "通天閣", "lat": 34.6525, "lng": 135.5063, "day": 5},
+      {"name": "天王寺動物園", "lat": 34.6495, "lng": 135.5110, "day": 6}
+    ],
+    "hotels": [
+      {"name": "難波ホテル (Namba Hotel)", "lat": 34.6658, "lng": 135.5010, "day": 3},
+      {"name": "梅田タワー (Umeda Tower Hotel)", "lat": 34.7055, "lng": 135.4988, "day": 5}
+    ],
     "cost_level_1": 7,
     "cost_level_2": 6,
     "cost_level_3": 4,

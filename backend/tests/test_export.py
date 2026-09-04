@@ -33,10 +33,14 @@ class _Destination:
         name="Tokyo",
         lat=35.6762,
         lng=139.6503,
+        attractions=None,
+        hotels=None,
     ):
         self.name = name
         self.lat = lat
         self.lng = lng
+        self.attractions = attractions or []
+        self.hotels = hotels or []
 
 
 class _Next:
@@ -110,14 +114,51 @@ def test_render_timeline_each_day_has_transport_sights_hotel():
 def test_render_includes_leaflet_map_when_coordinates_present():
     html = render_trip_html(_Trip(), _Destination(lat=35.6762, lng=139.6503))
     assert "leaflet" in html
-    assert "__MAP_POINT__" in html
+    assert "__MAP_POINTS__" in html
     assert "35.6762" in html
 
 
 def test_render_map_placeholder_when_no_coordinates():
     html = render_trip_html(_Trip(), _Destination(lat=None, lng=None))
     assert "map-fallback" in html
-    assert "__MAP_POINT__" not in html
+    assert "__MAP_POINTS__" not in html
+
+
+def test_render_map_has_multiple_markers_and_polyline():
+    dest = _Destination(
+        attractions=[
+            {"name": "Skytree", "lat": 35.7100, "lng": 139.8107, "day": 1},
+            {"name": "Asakusa", "lat": 35.7148, "lng": 139.7967, "day": 1},
+        ],
+        hotels=[
+            {"name": "Shinjuku Hotel", "lat": 35.6938, "lng": 139.7034, "day": 1},
+        ],
+    )
+    html = render_trip_html(_Trip(), dest)
+    assert "__MAP_POINTS__" in html
+    assert "Skytree" in html
+    assert "Asakusa" in html
+    assert "Shinjuku Hotel" in html
+    assert "L.marker" in html
+    assert "L.polyline" in html
+    assert "fitBounds" in html
+
+
+def test_render_map_single_point_no_polyline():
+    dest = _Destination(
+        attractions=[{"name": "Tokyo Tower", "lat": 35.6586, "lng": 139.7454, "day": 1}],
+    )
+    html = render_trip_html(_Trip(), dest)
+    assert "__MAP_POINTS__" in html
+    assert "L.marker" in html
+    assert "fitBounds" in html
+
+
+def test_render_map_fallback_when_no_attractions_or_hotels():
+    dest = _Destination(lat=35.6762, lng=139.6503, attractions=[], hotels=[])
+    html = render_trip_html(_Trip(), dest)
+    assert "__MAP_POINTS__" in html
+    assert "35.6762" in html
 
 
 def test_render_next_trip_teaser_when_provided():

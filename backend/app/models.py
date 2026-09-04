@@ -21,6 +21,8 @@ class Destination(Base):
     cost_level_2: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cost_level_3: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cost_level_4: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    attractions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    hotels: Mapped[str | None] = mapped_column(Text, nullable=True)
     tags: Mapped[str | None] = mapped_column(Text, nullable=True)
     image_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
 
