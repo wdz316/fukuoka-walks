@@ -38,7 +38,7 @@ if "%HEALTH_CODE%"=="200" (
 )
 
 echo [3/4] 启动后端 (端口 8000)...
-start "Travel Companion 后端 (8000)" cmd /k "cd /d "%~dp0" && set PYTHONPATH=backend && backend\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --port 8000"
+start "Travel Companion 后端 (8000)" /d "%~dp0" cmd /k "set PYTHONPATH=backend && backend\.venv\Scripts\python.exe -m uvicorn app.main:app --app-dir backend --port 8000"
 
 echo   等待后端就绪 (最多 30 秒)...
 set "READY=0"
@@ -71,7 +71,7 @@ echo   后端已就绪。
 
 :start_frontend
 echo [4/4] 启动前端 (端口 5173)...
-start "Travel Companion 前端 (5173)" cmd /k "cd /d "%~dp0frontend" && npm run dev"
+start "Travel Companion 前端 (5173)" /d "%~dp0frontend" cmd /k "npm run dev"
 
 echo.
 echo 两个窗口已弹出。若前端 5173 端口未打开，请稍候几秒。
