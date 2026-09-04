@@ -9,6 +9,7 @@ from sqlalchemy.orm import sessionmaker
 import app.models  # noqa: F401  # register tables on Base before create_all
 from app.db import Base, get_db
 from app.main import create_app
+from app.seed import seed_destinations
 
 TEST_DATABASE_URL = "sqlite://"
 
@@ -19,6 +20,8 @@ def client(tmp_path: Path) -> TestClient:
     engine = create_engine(f"sqlite:///{db_file}", connect_args={"check_same_thread": False})
     TestSession = sessionmaker(bind=engine)
     Base.metadata.create_all(bind=engine)
+    with TestSession() as seed_db:
+        seed_destinations(seed_db)
 
     def _override_get_db() -> None:
         db = TestSession()
