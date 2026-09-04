@@ -12,6 +12,7 @@
 <meta name="twitter:title" content="京都大阪紅葉之旅 | 京都">
 <meta name="twitter:description" content="京都大阪紅葉之旅 | 京都 — 旅程分享">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -154,7 +155,17 @@ window.addEventListener('DOMContentLoaded', function () {
 window.addEventListener('DOMContentLoaded', function () {
   var points = window.__MAP_POINTS__;
   var el = document.getElementById('map');
-  if (!el || typeof L === 'undefined' || !points || !points.length) return;
+  if (!el || !points || !points.length) return;
+  if (typeof L === 'undefined') {
+    var rows = '';
+    points.forEach(function (p) {
+      var d = p.day ? 'Day ' + p.day + ' — ' : '';
+      var icon = p.type === 'hotel' ? '🏨 ' : '📍 ';
+      rows += '<div class="map-list-item">' + d + icon + p.name + '</div>';
+    });
+    el.innerHTML = '<div class="map-fallback" style="padding:16px;text-align:left"><p style="margin:0 0 8px;color:#6b7280">地圖無法載入（離線）。行程點：</p>' + rows + '</div>';
+    return;
+  }
   var map = L.map(el);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,

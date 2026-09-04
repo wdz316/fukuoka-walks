@@ -118,6 +118,37 @@ def test_render_includes_leaflet_map_when_coordinates_present():
     assert "35.6762" in html
 
 
+def test_render_head_loads_both_leaflet_css_and_js():
+    html = render_trip_html(_Trip(), _Destination())
+    css_idx = html.index('<link rel="stylesheet"')
+    js_idx = html.index('<script src="')
+    assert 'rel="stylesheet"' in html
+    assert "leaflet.css" in html
+    assert '<script src="' + "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" + '"></script>' in html
+    assert "leaflet.js" in html
+    head = html[html.index("<head>"): html.index("</head>")]
+    assert "leaflet.js" in head
+    assert js_idx > css_idx
+
+
+def test_render_init_map_degrades_to_points_list_when_leaflet_missing():
+    dest = _Destination(
+        attractions=[
+            {"name": "Skytree", "lat": 35.7100, "lng": 139.8107, "day": 1},
+            {"name": "Asakusa", "lat": 35.7148, "lng": 139.7967, "day": 2},
+        ],
+        hotels=[{"name": "Shinjuku Hotel", "lat": 35.6938, "lng": 139.7034, "day": 1}],
+    )
+    html = render_trip_html(_Trip(), dest)
+    assert "typeof L === 'undefined'" in html
+    assert "__MAP_POINTS__" in html
+    # the JS builds the textual degradation list (Day + name), never blank
+    assert "'Day ' + p.day" in html
+    assert "p.name" in html
+    assert "map-list-item" in html
+    assert "地圖無法載入" in html
+
+
 def test_render_map_placeholder_when_no_coordinates():
     html = render_trip_html(_Trip(), _Destination(lat=None, lng=None))
     assert "map-fallback" in html

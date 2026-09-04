@@ -213,7 +213,17 @@ def _init_map_script() -> str:
         "window.addEventListener('DOMContentLoaded', function () {\n"
         "  var points = window.__MAP_POINTS__;\n"
         "  var el = document.getElementById('map');\n"
-        "  if (!el || typeof L === 'undefined' || !points || !points.length) return;\n"
+        "  if (!el || !points || !points.length) return;\n"
+        "  if (typeof L === 'undefined') {\n"
+        "    var rows = '';\n"
+        "    points.forEach(function (p) {\n"
+        "      var d = p.day ? 'Day ' + p.day + ' — ' : '';\n"
+        "      var icon = p.type === 'hotel' ? '🏨 ' : '📍 ';\n"
+        "      rows += '<div class=\"map-list-item\">' + d + icon + p.name + '</div>';\n"
+        "    });\n"
+        "    el.innerHTML = '<div class=\"map-fallback\" style=\"padding:16px;text-align:left\"><p style=\"margin:0 0 8px;color:#6b7280\">地圖無法載入（離線）。行程點：</p>' + rows + '</div>';\n"
+        "    return;\n"
+        "  }\n"
         "  var map = L.map(el);\n"
         "  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {\n"
         "    maxZoom: 19,\n"
@@ -338,6 +348,7 @@ def render_trip_html(trip, destination=None, next_trip=None) -> str:
 <meta name="twitter:title" content="{esc_title}">
 <meta name="twitter:description" content="{esc_title} — 旅程分享">
 <link rel="stylesheet" href="{LEAFLET_CSS}">
+<script src="{LEAFLET_JS}"></script>
 <style>
   * {{ box-sizing: border-box; }}
   body {{
