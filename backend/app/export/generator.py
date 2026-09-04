@@ -93,11 +93,71 @@ def _day_list(base: date | None, days: int) -> list[date | None]:
     return [base + timedelta(days=i) for i in range(days)]
 
 
+def _timeline_day_detail(day_num: int, attractions: list, hotels: list) -> str:
+    """Render per-point detail cards for a single day (attractions + hotels)."""
+    day_attractions = [a for a in attractions if a.get("day") == day_num]
+    day_hotels = [h for h in hotels if h.get("day") == day_num]
+
+    parts = []
+
+    if day_attractions:
+        for a in day_attractions:
+            url = a.get("url") or ""
+            booking_url = a.get("booking_url") or ""
+            phone = a.get("phone") or ""
+            address = a.get("address") or ""
+            detail_rows = ""
+            if address:
+                detail_rows += '<div class="detail-row"><span class="detail-icon">📍</span><span class="detail-text">%s</span></div>' % _esc(address)
+            if phone:
+                detail_rows += '<div class="detail-row"><span class="detail-icon">📞</span><span class="detail-text"><a href="tel:%s">%s</a></span></div>' % (_esc(phone), _esc(phone))
+            btns = ""
+            if url:
+                btns += '<a class="btn-detail" href="%s" target="_blank" rel="noopener">🌐 官網</a>' % _esc(url)
+            if booking_url:
+                btns += '<a class="btn-detail btn-booking" href="%s" target="_blank" rel="noopener">🎫 預約</a>' % _esc(booking_url)
+            parts.append(
+                '<div class="detail-card">'
+                '<div class="detail-name">📍 %s</div>'
+                '%s'
+                '<div class="detail-btns">%s</div>'
+                '</div>' % (_esc(a["name"]), detail_rows, btns)
+            )
+
+    if day_hotels:
+        for h in day_hotels:
+            url = h.get("url") or ""
+            booking_url = h.get("booking_url") or ""
+            phone = h.get("phone") or ""
+            address = h.get("address") or ""
+            detail_rows = ""
+            if address:
+                detail_rows += '<div class="detail-row"><span class="detail-icon">📍</span><span class="detail-text">%s</span></div>' % _esc(address)
+            if phone:
+                detail_rows += '<div class="detail-row"><span class="detail-icon">📞</span><span class="detail-text"><a href="tel:%s">%s</a></span></div>' % (_esc(phone), _esc(phone))
+            btns = ""
+            if url:
+                btns += '<a class="btn-detail" href="%s" target="_blank" rel="noopener">🌐 官網</a>' % _esc(url)
+            if booking_url:
+                btns += '<a class="btn-detail btn-booking" href="%s" target="_blank" rel="noopener">🏨 預訂房</a>' % _esc(booking_url)
+            parts.append(
+                '<div class="detail-card detail-hotel">'
+                '<div class="detail-name">🏨 %s</div>'
+                '%s'
+                '<div class="detail-btns">%s</div>'
+                '</div>' % (_esc(h["name"]), detail_rows, btns)
+            )
+
+    return "\n".join(parts) if parts else ""
+
+
 def _timeline(trip, destination) -> str:
     """Render the vertical day-by-day timeline (Day1..DayN).
 
     Each day is one timeline item containing 上午交通 / 下午景點 / 晚上酒店
     cards in that default order (no real per-point timing data is available).
+    When attractions/hotels have day-specific data, per-point detail cards
+    with website/booking/phone info are rendered below.
     """
     start = getattr(trip, "start_date", None)
     end = getattr(trip, "end_date", None)
@@ -112,9 +172,13 @@ def _timeline(trip, destination) -> str:
     days = _day_list(start if isinstance(start, date) else None, num_days)
     urls = _booking_urls(destination)
 
+    attractions = getattr(destination, "attractions", None) or []
+    hotels = getattr(destination, "hotels", None) or []
+
     items = []
     for idx, day in enumerate(days, start=1):
         date_line = _esc(_fmt_date(day)) if day is not None else ""
+        day_detail = _timeline_day_detail(idx, attractions, hotels)
         items.append(
             '<section class="tl-item">'
             '<span class="tl-dot"></span>'
@@ -123,6 +187,7 @@ def _timeline(trip, destination) -> str:
             '<div class="tl-card trans"><h3>上午交通 (Morning Transport)</h3>%s</div>'
             '<div class="tl-card sights"><h3>下午景點 (Afternoon Attractions)</h3>%s</div>'
             '<div class="tl-card hotel"><h3>晚上酒店 (Evening Hotel)</h3>%s</div>'
+            '%s'
             "</div></section>"
             % (
                 idx,
@@ -130,6 +195,7 @@ def _timeline(trip, destination) -> str:
                 _anchor_list(urls["transport"], "交通 (Transport)"),
                 _anchor_list(urls["attractions"], "景點 (Attractions)"),
                 _anchor_list(urls["hotels"], "住宿 (Hotel)"),
+                day_detail,
             )
         )
 
@@ -156,15 +222,23 @@ def _map_section(destination) -> str:
     all_points = list(map_points_attr)
     if not all_points:
         for a in attractions:
-            all_points.append({
+            pt = {
                 "name": a["name"], "lat": a["lat"], "lng": a["lng"],
                 "type": "attraction", "day": a.get("day"),
-            })
+                "url": a.get("url"), "phone": a.get("phone"),
+                "address": a.get("address"), "booking_url": a.get("booking_url"),
+            }
+            pt["popupHtml"] = _popup_html(pt)
+            all_points.append(pt)
         for h in hotels:
-            all_points.append({
+            pt = {
                 "name": h["name"], "lat": h["lat"], "lng": h["lng"],
                 "type": "hotel", "day": h.get("day"),
-            })
+                "url": h.get("url"), "phone": h.get("phone"),
+                "address": h.get("address"), "booking_url": h.get("booking_url"),
+            }
+            pt["popupHtml"] = _popup_html(pt)
+            all_points.append(pt)
     all_points.sort(key=lambda p: (p.get("day") or 9999))
 
     if not all_points:
@@ -207,6 +281,65 @@ def _render_countdown_script(end_date: date | None) -> str:
     ) % epoch
 
 
+def _popup_html(p: dict) -> str:
+    """Build a Leaflet popup HTML string for one map point."""
+    is_hotel = p.get("type") == "hotel"
+    icon = "🏨 " if is_hotel else "📍 "
+    name = _esc(p.get("name", ""))
+    day = p.get("day")
+    url = p.get("url") or ""
+    phone = p.get("phone") or ""
+    parts = ['<div style="min-width:150px">']
+    parts.append("<b>" + icon + name + "</b>")
+    if day:
+        parts.append("<br><span style='color:#6b7280;font-size:.8em'>Day " + _esc(day) + "</span>")
+    if url:
+        link_label = "官網" if not is_hotel else "住宿官網"
+        if is_hotel:
+            booking_url = p.get("booking_url") or ""
+            parts.append(
+                '<br><a href="%s" target="_blank" rel="noopener" '
+                'style="display:inline-block;margin-top:6px;padding:4px 10px;'
+                'background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;'
+                'font-size:.85em">🌐 官網</a>' % _esc(url)
+            )
+            if booking_url:
+                parts.append(
+                    ' <a href="%s" target="_blank" rel="noopener" '
+                    'style="display:inline-block;margin-top:6px;padding:4px 10px;'
+                    'background:#dc2626;color:#fff;border-radius:6px;text-decoration:none;'
+                    'font-size:.85em">🏨 預訂房</a>' % _esc(booking_url)
+                )
+        else:
+            booking_url = p.get("booking_url") or ""
+            parts.append(
+                '<br><a href="%s" target="_blank" rel="noopener" '
+                'style="display:inline-block;margin-top:6px;padding:4px 10px;'
+                'background:#2563eb;color:#fff;border-radius:6px;text-decoration:none;'
+                'font-size:.85em">🌐 官網</a>' % _esc(url)
+            )
+            if booking_url:
+                parts.append(
+                    ' <a href="%s" target="_blank" rel="noopener" '
+                    'style="display:inline-block;margin-top:6px;padding:4px 10px;'
+                    'background:#0891b2;color:#fff;border-radius:6px;text-decoration:none;'
+                    'font-size:.85em">🎫 預約</a>' % _esc(booking_url)
+                )
+    if phone:
+        parts.append(
+            '<br><span style="color:#374151;font-size:.85em">'
+            '📞 <a href="tel:%s" style="color:#2563eb">%s</a></span>'
+            % (_esc(phone), _esc(phone))
+        )
+    if p.get("address"):
+        parts.append(
+            '<br><span style="color:#6b7280;font-size:.8em">📍 %s</span>'
+            % _esc(p.get("address"))
+        )
+    parts.append("</div>")
+    return "".join(parts)
+
+
 def _init_map_script() -> str:
     return (
         "<script>\n"
@@ -217,9 +350,11 @@ def _init_map_script() -> str:
         "  if (typeof L === 'undefined') {\n"
         "    var rows = '';\n"
         "    points.forEach(function (p) {\n"
-        "      var d = p.day ? 'Day ' + p.day + ' — ' : '';\n"
-        "      var icon = p.type === 'hotel' ? '🏨 ' : '📍 ';\n"
-        "      rows += '<div class=\"map-list-item\">' + d + icon + p.name + '</div>';\n"
+        "      var d = p.day ? 'Day ' + p.day + ' \\u2014 ' : '';\n"
+        "      var icon = p.type === 'hotel' ? '\\uD83C\\uDFE8 ' : '\\uDCCD';\n"
+        "      var lnk = p.url ? ' <a href=\"' + p.url + '\" target=\"_blank\" rel=\"noopener\" style=\"color:#2563eb;font-size:.85em\">\\uD83C\\uDF10</a>' : '';\n"
+        "      var ph = p.phone ? ' \\uD83D\\uDCD1 ' + p.phone : '';\n"
+        "      rows += '<div class=\"map-list-item\">' + d + icon + p.name + lnk + ph + '</div>';\n"
         "    });\n"
         "    el.innerHTML = '<div class=\"map-fallback\" style=\"padding:16px;text-align:left\"><p style=\"margin:0 0 8px;color:#6b7280\">地圖無法載入（離線）。行程點：</p>' + rows + '</div>';\n"
         "    return;\n"
@@ -240,7 +375,7 @@ def _init_map_script() -> str:
         "      iconAnchor: [7, 7]\n"
         "    });\n"
         "    L.marker([p.lat, p.lng], {icon: icon}).addTo(map)\n"
-        "      .bindPopup('<b>' + (isHotel ? '🏨 ' : '📍 ') + p.name + '</b>' + (p.day ? '<br>Day ' + p.day : ''));\n"
+        "      .bindPopup(p.popupHtml || '<b>' + (isHotel ? '\\uD83C\\uDFE8 ' : '\\uDCCD') + p.name + '</b>' + (p.day ? '<br>Day ' + p.day : ''));\n"
         "    routeCoords.push([p.lat, p.lng]);\n"
         "  });\n"
         "  if (routeCoords.length > 1) {\n"
@@ -310,20 +445,30 @@ def render_trip_html(trip, destination=None, next_trip=None) -> str:
     all_points = list(map_points_attr)
     if not all_points:
         for a in attractions:
-            all_points.append({
+            pt = {
                 "name": a["name"], "lat": a["lat"], "lng": a["lng"],
                 "type": "attraction", "day": a.get("day"),
-            })
+                "url": a.get("url"), "phone": a.get("phone"),
+                "address": a.get("address"), "booking_url": a.get("booking_url"),
+            }
+            pt["popupHtml"] = _popup_html(pt)
+            all_points.append(pt)
         for h in hotels:
-            all_points.append({
+            pt = {
                 "name": h["name"], "lat": h["lat"], "lng": h["lng"],
                 "type": "hotel", "day": h.get("day"),
-            })
+                "url": h.get("url"), "phone": h.get("phone"),
+                "address": h.get("address"), "booking_url": h.get("booking_url"),
+            }
+            pt["popupHtml"] = _popup_html(pt)
+            all_points.append(pt)
     all_points.sort(key=lambda p: (p.get("day") or 9999))
 
     if not all_points and point_lat is not None and point_lng is not None:
-        all_points = [{"name": dest_name, "lat": point_lat, "lng": point_lng,
-                        "type": "attraction", "day": None}]
+        fallback = {"name": dest_name, "lat": point_lat, "lng": point_lng,
+                     "type": "attraction", "day": None}
+        fallback["popupHtml"] = _popup_html(fallback)
+        all_points = [fallback]
 
     map_init_script = _init_map_script() if all_points else ""
 
@@ -407,6 +552,24 @@ def render_trip_html(trip, destination=None, next_trip=None) -> str:
   }}
   .tl-card h3 {{ margin: 0 0 8px; font-size: .9rem; color: #374151; }}
   .tl-card ul {{ list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }}
+  .detail-card {{
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 10px;
+    padding: 10px 12px;
+  }}
+  .detail-card.detail-hotel {{ border-left: 3px solid #dc2626; }}
+  .detail-name {{ font-weight: 700; color: #111827; margin-bottom: 4px; }}
+  .detail-row {{ display: flex; gap: 6px; align-items: flex-start; font-size: .85rem; color: #374151; margin-bottom: 2px; }}
+  .detail-icon {{ flex: none; }}
+  .detail-text a {{ color: #2563eb; text-decoration: none; }}
+  .detail-btns {{ display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }}
+  .btn-detail {{
+    display: inline-block; padding: 6px 12px; border-radius: 8px;
+    background: #eef2ff; color: #2563eb; font-weight: 600;
+    text-decoration: none; border: 1px solid #c7d2fe; font-size: .85rem;
+  }}
+  .btn-detail:hover {{ background: #e0e7ff; }}
+  .btn-detail.btn-booking {{ background: #fee2e2; color: #dc2626; border-color: #fecaca; }}
+  .btn-detail.btn-booking:hover {{ background: #fecaca; }}
 </style>
 </head>
 <body>

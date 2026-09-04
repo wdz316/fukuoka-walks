@@ -158,7 +158,8 @@ def test_render_map_placeholder_when_no_coordinates():
 def test_render_map_has_multiple_markers_and_polyline():
     dest = _Destination(
         attractions=[
-            {"name": "Skytree", "lat": 35.7100, "lng": 139.8107, "day": 1},
+            {"name": "Skytree", "lat": 35.7100, "lng": 139.8107, "day": 1,
+             "url": "https://www.tokyo-skytree.jp/", "phone": "03-5302-0000"},
             {"name": "Asakusa", "lat": 35.7148, "lng": 139.7967, "day": 1},
         ],
         hotels=[
@@ -173,6 +174,49 @@ def test_render_map_has_multiple_markers_and_polyline():
     assert "L.marker" in html
     assert "L.polyline" in html
     assert "fitBounds" in html
+
+
+def test_render_timeline_shows_website_booking_phone_for_points():
+    dest = _Destination(
+        attractions=[
+            {"name": "清水寺", "lat": 34.9949, "lng": 135.7850, "day": 1,
+             "url": "https://www.kiyomizudera.or.jp/",
+             "booking_url": "https://www.kiyomizudera.or.jp/ticket",
+             "phone": "075-551-1234", "address": "京都市東山区清水1丁目294"},
+        ],
+        hotels=[
+            {"name": "祇園旅館", "lat": 35.0036, "lng": 135.7753, "day": 1,
+             "url": "https://www.booking.com/searchresults.html?ss=Gion",
+             "booking_url": "https://www.booking.com/searchresults.html?ss=Gion",
+             "phone": "+81-75-XXX-XXXX", "address": "京都市東山区祇園町"},
+        ],
+    )
+    trip = _Trip(start_date=date(2026, 3, 20), end_date=date(2026, 3, 21))
+    html = render_trip_html(trip, dest)
+    # official website links present in detail cards
+    assert "kiyomizudera.or.jp" in html
+    assert "https://www.kiyomizudera.or.jp/" in html
+    assert "booking.com" in html
+    # booking button rendered
+    assert "預約" in html
+    assert "預訂房" in html
+    # phone + address rendered
+    assert "075-551-1234" in html
+    assert "京都市東山区清水1丁目294" in html
+    assert "祇園町" in html
+
+
+def test_render_map_popup_contains_official_website_link():
+    dest = _Destination(
+        attractions=[
+            {"name": "金閣寺", "lat": 35.0394, "lng": 135.7292, "day": 2,
+             "url": "https://www.shokoku-ji.jp/kinkaku/"},
+        ],
+    )
+    html = render_trip_html(_Trip(), dest)
+    assert "shokoku-ji.jp" in html
+    assert "popupHtml" in html
+    assert "https://www.shokoku-ji.jp/kinkaku/" in html
 
 
 def test_render_map_single_point_no_polyline():

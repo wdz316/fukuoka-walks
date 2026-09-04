@@ -72,6 +72,25 @@ def test_generated_demo_has_multi_point_map_with_route():
     assert "fitBounds" in html
 
 
+def test_generated_demo_links_official_site_booking_phone():
+    _run_generator()
+    html = OUT.read_text(encoding="utf-8")
+    # official attraction websites
+    assert "kiyomizudera.or.jp" in html
+    assert "shokoku-ji.jp" in html
+    assert "inari.jp" in html
+    assert "osakajo.or.jp" in html
+    # booking links
+    assert "booking.com/searchresults.html" in html
+    assert "預約" in html
+    assert "預訂房" in html
+    # phone numbers
+    assert "075-551-1234" in html
+    assert "+81-75-XXX-XXXX" in html
+    # map popup carries official website
+    assert "popupHtml" in html
+
+
 def test_generated_demo_uses_timeline_layout_per_day():
     _run_generator()
     html = OUT.read_text(encoding="utf-8")
