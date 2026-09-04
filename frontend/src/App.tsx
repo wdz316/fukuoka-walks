@@ -1,18 +1,18 @@
 import { Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
-import DestinationPage from './pages/DestinationPage'
-import HistoryPage from './pages/HistoryPage'
-import HomePage from './pages/HomePage'
-import PlanPage from './pages/PlanPage'
+import DestinationDetailPage from './pages/DestinationDetail'
+import HistoryPage from './pages/History'
+import DashboardPage from './pages/Dashboard'
+import RecommendPage from './pages/Recommend'
 
 export default function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route index element={<HomePage />} />
-        <Route path="plan" element={<PlanPage />} />
+        <Route index element={<DashboardPage />} />
+        <Route path="plan" element={<RecommendPage />} />
         <Route path="history" element={<HistoryPage />} />
-        <Route path="destination/:id" element={<DestinationPage />} />
+        <Route path="destination/:id" element={<DestinationDetailPage />} />
       </Route>
     </Routes>
   )

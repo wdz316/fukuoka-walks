@@ -10,7 +10,7 @@ import type {
   Trip,
 } from "./types";
 
-const BASE_URL = "http://localhost:8000";
+const BASE_URL = "";
 
 function assertDefined<T>(value: T, label: string): asserts value is NonNullable<T> {
   if (value == null) throw new ApiClientError(`${label} is missing`);
