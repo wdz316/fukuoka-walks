@@ -1,5 +1,5 @@
 """POST /api/trips, GET /api/trips, DELETE /api/trips/{id},
-GET /api/trips/{id}/export  (placeholder — T10 will add real export).
+GET /api/trips/{id}/export  (single-file HTML itinerary export).
 """
 
 from __future__ import annotations
@@ -11,7 +11,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import Trip
+from app.export.generator import render_trip_html
+from app.models import Destination, Trip
 from app.schemas import Trip as TripSchema, TripIn
 
 router = APIRouter(prefix="/api/trips", tags=["Trips"])
@@ -82,10 +83,11 @@ def delete_trip(trip_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{trip_id}/export", status_code=status.HTTP_200_OK)
 def export_trip(trip_id: int, db: Session = Depends(get_db)):
-    """Placeholder — real HTML/markdown/ICS export will be wired by T10.
+    """Export a trip as a single-file, shareable HTML itinerary.
 
-    Returns 404 JSON for a missing trip; otherwise a stub JSON payload
-    indicating the feature is pending.
+    Loads the ``Trip`` (and its linked ``Destination``) and renders it via
+    ``render_trip_html`` — a self-contained HTML document with Open Graph
+    meta tags and a live countdown. Returns ``text/html``.
     """
     trip = db.get(Trip, trip_id)
     if trip is None:
@@ -93,7 +95,11 @@ def export_trip(trip_id: int, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Trip not found",
         )
-    return {
-        "message": "Export not yet implemented (T10 placeholder)",
-        "trip_id": trip_id,
-    }
+    destination: Destination | None = None
+    if trip.destination_id is not None:
+        destination = db.get(Destination, trip.destination_id)
+    html = render_trip_html(trip, destination)
+    return Response(
+        content=html,
+        media_type="text/html; charset=utf-8",
+    )

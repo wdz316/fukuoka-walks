@@ -66,18 +66,28 @@ def test_delete_trip_not_found(client: TestClient) -> None:
     assert resp.status_code == 404
 
 
-def test_export_placeholder(client: TestClient) -> None:
+def test_export_returns_html_itinerary(client: TestClient) -> None:
     create = client.post(
         "/api/trips",
         json={
-            "title": "Trip",
+            "title": "Golden Week Tokyo",
             "start_date": "2026-05-01",
             "end_date": "2026-05-03",
+            "notes": "Cherry blossoms",
         },
     )
     trip_id = create.json()["id"]
     resp = client.get(f"/api/trips/{trip_id}/export")
     assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/html")
+    body = resp.text
+    assert body.startswith("<!DOCTYPE html>")
+    assert "Golden Week Tokyo" in body
+    # Open Graph meta tags + live countdown present in the exported HTML
+    assert 'property="og:title"' in body
+    assert 'property="og:description"' in body
+    assert 'id="countdown"' in body
+    assert "setInterval" in body
 
     missing = client.get("/api/trips/999999/export")
     assert missing.status_code == 404
