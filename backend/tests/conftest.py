@@ -1,0 +1,32 @@
+import tempfile
+from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.db import Base, get_db
+from app.main import create_app
+
+TEST_DATABASE_URL = "sqlite://"
+
+
+@pytest.fixture()
+def client(tmp_path: Path) -> TestClient:
+    db_file = tmp_path / "test.db"
+    engine = create_engine(f"sqlite:///{db_file}", connect_args={"check_same_thread": False})
+    TestSession = sessionmaker(bind=engine)
+    Base.metadata.create_all(bind=engine)
+
+    def _override_get_db() -> None:
+        db = TestSession()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app = create_app()
+    app.dependency_overrides[get_db] = _override_get_db
+    with TestClient(app) as c:
+        yield c
