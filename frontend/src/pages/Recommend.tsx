@@ -41,12 +41,31 @@ const emptyForm: FormState = {
   directDate: '',
 }
 
-function today(): string {
-  const d = new Date()
+function toISO(d: Date): string {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
+}
+
+function nextWeekendDates(): { start: string; end: string } {
+  const now = new Date()
+  const daysUntilSat = ((6 - now.getDay() + 7) % 7) || 7
+  const sat = new Date(now)
+  sat.setDate(now.getDate() + daysUntilSat)
+  const sun = new Date(sat)
+  sun.setDate(sat.getDate() + 1)
+  return { start: toISO(sat), end: toISO(sun) }
+}
+
+function effectiveDirectDates(form: FormState): {
+  start: string
+  end: string
+  defaultsApplied: boolean
+} {
+  if (form.directDate) return { start: form.directDate, end: form.directDate, defaultsApplied: false }
+  const nw = nextWeekendDates()
+  return { start: nw.start, end: nw.end, defaultsApplied: true }
 }
 
 export default function PlanPage() {
@@ -138,7 +157,12 @@ export default function PlanPage() {
       }
       setRecommendations([rec])
       setSelected(rec)
-      setMessage(`「${match.name}」の詳細を表示しています。`)
+      const plan = effectiveDirectDates(form)
+      setMessage(
+        plan.defaultsApplied
+          ? `「${match.name}」の詳細を表示しています。出発日が未指定のため、次の週末（${plan.start}〜${plan.end}）を仮定しました。`
+          : `「${match.name}」の詳細を表示しています。`,
+      )
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : '処理に失敗しました')
     } finally {
@@ -152,11 +176,13 @@ export default function PlanPage() {
     setError(null)
     setMessage(null)
     try {
+      const plan = form.startDate
+        ? { start: form.startDate, end: form.endDate || form.startDate }
+        : effectiveDirectDates(form)
       const trip: Trip = {
         title: `${selected.destination.name} 旅行プラン`,
-        start_date: form.startDate || form.directDate || today(),
-        end_date:
-          form.endDate || form.directDate || today(),
+        start_date: plan.start,
+        end_date: plan.end,
         destination_id: selected.destination.id,
         notes: selected.reason ?? '',
       }
@@ -247,7 +273,7 @@ export default function PlanPage() {
                   min={0}
                   value={form.budget}
                   onChange={(e) => update('budget', e.target.value)}
-                  placeholder="例: 2000"
+                  placeholder="例: 300000"
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
                 />
               </label>
@@ -290,7 +316,7 @@ export default function PlanPage() {
               disabled={loading}
               className="w-full rounded-lg bg-rose-600 px-4 py-3 font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
             >
-              {loading ? '検索中...' : 'レコメンドを取得'}
+              {loading ? '検索中...' : 'レコメンド取得'}
             </button>
           </form>
         </section>

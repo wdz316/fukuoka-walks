@@ -142,6 +142,21 @@
     "image_url": "https://example.com/images/kanazawa.jpg"
   },
   {
+    "name": "Fukuoka",
+    "country": "Japan",
+    "region": "East Asia",
+    "description": "Kyushu's gateway city famed for yatai street stalls, the historic Kushida Shrine, and the relaxing Ohori Park.",
+    "best_season": "autumn",
+    "lat": 33.5904,
+    "lng": 130.4017,
+    "cost_level_1": 5,
+    "cost_level_2": 4,
+    "cost_level_3": 3,
+    "cost_level_4": 2,
+    "tags": ["city", "food", "culture", "nature"],
+    "image_url": "https://example.com/images/fukuoka.jpg"
+  },
+  {
     "name": "Seoul",
     "country": "South Korea",
     "region": "East Asia",

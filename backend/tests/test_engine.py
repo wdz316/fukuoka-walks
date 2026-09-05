@@ -44,25 +44,29 @@ def _filters(**overrides):
 
 
 # ---------------------------------------------------------------------------
-# Budget
+# Budget (soft – never hard-excludes)
 # ---------------------------------------------------------------------------
 
-def test_budget_overage_excludes_destination() -> None:
-    """A destination whose estimated cost exceeds budget must never appear."""
+def test_budget_overage_kept_but_ranked_lower() -> None:
+    """Over-budget destinations stay (soft ranking), ranked below in-budget."""
     expensive = _dest(id=1, name="Lux", cost_level_1=10, cost_level_2=10)
     cheap = _dest(id=2, name="Budget", cost_level_1=1, cost_level_2=1)
     # 3-day trip → uses cost_level_2 (days <= 4)
-    # cheap(1) => 1*20k*3 = 60k; expensive(10) => 600k
+    # cheap(1) => 1*20k*3 = 60k (within); expensive(10) => 600k (over)
     filters = _filters(budget=300_000)
 
     results = recommend([expensive, cheap], filters)
+    by_name = {r["destination"]["name"]: r for r in results}
 
-    names = {r["destination"]["name"] for r in results}
-    assert "Lux" not in names
-    assert "Budget" in names
+    # neither is dropped, but the in-budget one wins and is not flagged
+    assert "Lux" in by_name
+    assert "Budget" in by_name
+    assert by_name["Budget"]["score"] > by_name["Lux"]["score"]
+    assert any("Within budget" in r for r in by_name["Budget"]["reasons"])
+    assert any("exceeds budget" in r for r in by_name["Lux"]["reasons"])
 
 
-def test_budget_no_limit_keeps_all() -> None:
+def test_budget_empty_keeps_all() -> None:
     results = recommend(
         [_dest(id=1, name="A", cost_level_1=10)],
         _filters(),
@@ -70,15 +74,127 @@ def test_budget_no_limit_keeps_all() -> None:
     assert len(results) == 1
 
 
-def test_budget_excludes_even_with_high_interest() -> None:
-    """Budget is a hard filter – never outweighed by preference score."""
-    pricey = _dest(id=1, name="Pricey", cost_level_1=10, tags=["food", "culture"])
+def test_budget_none_explicit_keeps_all() -> None:
+    filters = _filters(budget=None)
+    results = recommend(
+        [_dest(id=1, name="A", cost_level_1=10)],
+        filters,
+    )
+    assert len(results) == 1
+
+
+def test_small_budget_never_empty_keeps_cheapest() -> None:
+    """A tiny budget must not wipe out results – cheapest option still returns."""
+    dests = [
+        _dest(id=1, name="Budget", cost_level_1=1, cost_level_2=1),
+        _dest(id=2, name="Pricey", cost_level_1=10, cost_level_2=10),
+    ]
+    # 3-day trip → cost_level_2; even the cheapest (1*20k*3 = 60k) is over 10k
     filters = _filters(budget=10_000, interests=["food"])
     prefs = [{"category": "interest", "value": "food", "weight": 2.0}]
 
-    results = recommend([pricey], filters, preferences=prefs)
+    results = recommend(dests, filters, preferences=prefs)
 
-    assert results == []
+    names = [r["destination"]["name"] for r in results]
+    # not emptied on a tight budget – both cheapest and pricey stay visible
+    assert "Budget" in names
+    assert "Pricey" in names
+    all_reasons = [reason for r in results for reason in r["reasons"]]
+    assert any("exceeds budget" in reason for reason in all_reasons)
+
+
+def test_small_budget_cheapest_beats_expensive_ranking() -> None:
+    """Within-budget cheap option ranks above over-budget expensive option."""
+    cheap = _dest(id=1, name="Cheap", cost_level_1=1, cost_level_2=1)
+    pricey = _dest(id=2, name="Pricey", cost_level_1=10, cost_level_2=10)
+    # 3-day trip → cost_level_2; cheap = 1*20k*3 = 60k (under 100k budget)
+    #                              pricey = 10*20k*3 = 600k (over 100k budget)
+    filters = _filters(budget=100_000)
+
+    results = recommend([cheap, pricey], filters)
+    by_name = {r["destination"]["name"]: r for r in results}
+
+    assert len(results) == 2  # nothing hard-excluded
+    assert by_name["Cheap"]["score"] > by_name["Pricey"]["score"]
+    assert any("Within budget" in reason for reason in by_name["Cheap"]["reasons"])
+    assert any("exceeds budget" in reason for reason in by_name["Pricey"]["reasons"])
+
+
+def test_small_budget_all_over_cost_still_retains_cheapest_three() -> None:
+    """Even when every destination exceeds a tiny budget, the cheapest 3+ are present.
+
+    Budget is soft (never hard-excludes), so all destinations survive ranking.
+    The test locks the invariant that a small budget does not wipe results to
+    fewer than 3 cheapest candidates.
+    """
+    dests = [
+        _dest(id=i, name=f"T{v}", cost_level_1=v, cost_level_2=v)
+        for i, v in enumerate([1, 2, 3, 7, 8, 9], start=1)
+    ]
+    # 3-day trip → cost_level_2; cheapest = 1*20k*3 = 60k, budget = 10k → all over
+    filters = _filters(budget=10_000)
+
+    results = recommend(dests, filters)
+
+    names = {r["destination"]["name"] for r in results}
+    assert {"T1", "T2", "T3"} <= names  # cheapest 3 always present
+    assert len(results) == len(dests)   # no hard-cuts at all
+
+
+# ---------------------------------------------------------------------------
+# Same-city weekend (city-walk / staycation)
+# ---------------------------------------------------------------------------
+
+def test_weekend_same_city_recommended_any_season() -> None:
+    """A same-city weekend must always be recommendable, even off-season.
+
+    Uses a Chinese-language origin (福冈) that maps to the romaji destination
+    (Fukuoka, best season autumn) and a winter weekend – previously excluded by
+    the season hard filter, now restored by the city-walk exemption.
+    """
+    fukuoka = _dest(
+        id=1,
+        name="Fukuoka",
+        country="Japan",
+        region="East Asia",
+        best_season="autumn",
+    )
+    # winter weekend – opposite of Fukuoka's best season
+    filters = _filters(
+        start_date="2026-01-10",
+        end_date="2026-01-11",
+        origin="福冈",
+    )
+
+    results = recommend([fukuoka], filters)
+
+    assert len(results) == 1
+    assert results[0]["destination"]["name"] == "Fukuoka"
+    assert any("city-walk" in r for r in results[0]["reasons"])
+
+
+def test_cjk_origin_matches_romaji_destination() -> None:
+    """Romaji/Japanese/Chinese spellings of the same city are all matched."""
+    tokyo = _dest(id=1, name="Tokyo", country="Japan")
+
+    for origin in ("Tokyo", "東京", "东京"):
+        results = recommend([tokyo], _filters(origin=origin))
+        assert len(results) == 1, f"origin {origin!r} should match Tokyo"
+        assert any("city-walk" in r for r in results[0]["reasons"])
+
+
+def test_same_city_weekend_outranks_nearby_other() -> None:
+    """On a short trip the traveller's own city wins the city-walk boost."""
+    home = _dest(id=1, name="Fukuoka", country="Japan", region="East Asia", best_season="spring")
+    other = _dest(id=2, name="Seoul", country="South Korea", region="East Asia", best_season="spring")
+    # spring weekend in Fukuoka's season
+    filters = _filters(start_date="2026-04-04", end_date="2026-04-05", origin="福冈")
+
+    results = recommend([other, home], filters)
+    by_name = {r["destination"]["name"]: r for r in results}
+
+    assert by_name["Fukuoka"]["score"] > by_name["Seoul"]["score"]
+    assert any("city-walk" in r for r in by_name["Fukuoka"]["reasons"])
 
 
 # ---------------------------------------------------------------------------
@@ -245,3 +361,31 @@ def test_output_shape_and_reason() -> None:
     assert isinstance(rec["score"], float)
     assert isinstance(rec["reasons"], list)
     assert isinstance(rec["matched_interests"], list)
+
+
+# ---------------------------------------------------------------------------
+# Raw catalogue rows (seed JSON shape: extra keys, no id)
+# ---------------------------------------------------------------------------
+
+def test_raw_seed_rows_with_extra_keys_and_missing_id() -> None:
+    raw = {
+        "name": "Fukuoka",
+        "country": "Japan",
+        "region": "East Asia",
+        "description": "yatai stalls",
+        "best_season": "autumn",
+        "lat": 33.5904,
+        "lng": 130.4017,
+        "image_url": "https://example.com/fukuoka.jpg",
+        "tags": ["food"],
+        "cost_level_1": 5,
+        "cost_level_2": 4,
+        "cost_level_3": 3,
+        "cost_level_4": 2,
+    }
+    results = recommend(
+        [raw],
+        {"start_date": "2026-09-05", "end_date": "2026-09-06", "origin": "福冈"},
+    )
+    assert len(results) == 1
+    assert results[0]["destination"]["name"] == "Fukuoka"

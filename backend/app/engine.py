@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from datetime import date
 from typing import Any
 
@@ -63,6 +63,33 @@ _SEASON_BY_MONTH = {
 
 _NEARBY_REGIONS = {"East Asia", "Southeast Asia"}
 
+# Localized spellings of each seeded destination so a traveller's typed origin
+# (romaji, Japanese, or Chinese) is recognised as their own city regardless of
+# the language.  Keys map every variant to one canonical ASCII city name.
+_CITY_ALIAS = {
+    "tokyo": "tokyo", "東京": "tokyo", "东京": "tokyo",
+    "kyoto": "kyoto", "京都": "kyoto",
+    "osaka": "osaka", "大阪": "osaka",
+    "nara": "nara", "奈良": "nara",
+    "hokkaido": "hokkaido", "北海道": "hokkaido",
+    "okinawa": "okinawa", "沖縄": "okinawa", "冲绳": "okinawa",
+    "hiroshima": "hiroshima", "広島": "hiroshima", "广岛": "hiroshima",
+    "kanazawa": "kanazawa", "金沢": "kanazawa", "金泽": "kanazawa",
+    "fukuoka": "fukuoka", "福岡": "fukuoka", "福冈": "fukuoka",
+    "seoul": "seoul", "ソウル": "seoul", "首尔": "seoul",
+    "busan": "busan", "プサン": "busan", "釜山": "busan",
+    "taipei": "taipei", "台北": "taipei",
+    "beijing": "beijing", "北京": "beijing",
+    "shanghai": "shanghai", "上海": "shanghai",
+    "hong kong": "hong kong", "香港": "hong kong",
+}
+
+# Full-width (CJK) digits/letters normalised to half-width so 全角 input matches.
+_FULLWIDTH_TRANS = str.maketrans(
+    "ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ０１２３４５６７８９",
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
+)
+
 # Approx min trip days for a region to be sensibly reachable
 _REGION_MIN_DAYS = {
     "East Asia": 1,
@@ -121,6 +148,38 @@ def _season_for_date(iso: str) -> str:
     return _SEASON_BY_MONTH[month]
 
 
+def _norm_city(name: str | None) -> str:
+    """Normalise a city/origin for same-city comparison.
+
+    Case-folds, converts full-width CJK characters, collapses whitespace and
+    strips a trailing city suffix (``shi``/``city``/``市``) so ``Tokyo``,
+    ``tokyo-shi`` and ``東京`` all compare consistently.
+    """
+    if not name:
+        return ""
+    return " ".join(name.translate(_FULLWIDTH_TRANS).lower().split()).replace(
+        " shi", ""
+    ).replace(" city", "").replace("市", "").strip()
+
+
+def _is_same_city(dest: Destination, origin: str) -> bool:
+    """True when a destination is the traveller's own city.
+
+    Matches the destination's country directly, or the city name after
+    localisation normalisation (romaji / Japanese / Chinese aliases).
+    """
+    o = _norm_city(origin)
+    if not o:
+        return False
+    if _norm_city(dest.country) == o:
+        return True
+    dest_key = _norm_city(dest.name)
+    if dest_key == o:
+        return True
+    # Both sides resolved to a known canonical city name (handles 福冈 <-> Fukuoka)
+    return _CITY_ALIAS.get(dest_key) == _CITY_ALIAS.get(o) and dest_key in _CITY_ALIAS
+
+
 # ---------------------------------------------------------------------------
 # Main engine
 # ---------------------------------------------------------------------------
@@ -136,16 +195,26 @@ def recommend(
     Pure function – no IO.  Deterministic: same inputs ⇒ same order.
 
     **Hard filters** (destination excluded if violated):
-      - Budget: estimated cost (cost_level × base) must be ≤ ``budget``.
-      - Region: must equal ``filters["region"]`` when provided.
-      - Trip-length feasibility: short trips only allow nearby regions.
-      - Season: destination's best_season must match the trip month.
+      - Region: must equal ``filters["region"]`` when provided (unless the
+        destination is the traveller's own city).
+      - Trip-length feasibility: short trips only allow nearby regions (unless
+        the destination is the traveller's own city).
+      - Season: destination's best_season must match the trip month (unless the
+        destination is the traveller's own city).
       - Recent-trip exclusion: destinations visited in the last 90 days.
+
+    **Soft signals (never exclude)**:
+      - Budget: when set, destinations are soft-ranked by cost instead of being
+        hard-cut; over-budget destinations stay but rank lower with a noted
+        overage.  An empty/absent budget applies no filter.
+      - Same-city (origin): the traveller's own city is never region/season
+        excluded and gets a city-walk / staycation boost on short trips.
 
     **Scoring**:
       - Preference dot product (category/value/weight).
       - Interest overlap from ``filters["interests"]``.
       - Trip-length fit.
+      - Same-city city-walk bonus; budget fit / overage penalty.
       - Recent-trip deweight; novelty bonus for never-visited.
     """
     f = Filters(**filters)
@@ -167,32 +236,73 @@ def recommend(
 
     results: list[dict[str, Any]] = []
 
+    dest_fields = {f.name for f in fields(Destination)}
+    dest_defaults: dict[str, Any] = {
+        "id": -1,
+        "name": "",
+        "country": "",
+        "region": "",
+        "description": "",
+        "best_season": None,
+        "tags": [],
+        "cost_level_1": 0,
+        "cost_level_2": 0,
+        "cost_level_3": 0,
+        "cost_level_4": 0,
+    }
     for raw in destinations:
-        dest = raw if isinstance(raw, Destination) else Destination(**raw)
+        if isinstance(raw, Destination):
+            dest = raw
+        else:
+            # Ignore unknown keys (e.g. lat/lng/image_url from seed JSON) and
+            # fill missing keys with defaults so raw catalogue rows never
+            # crash the engine.
+            dest = Destination(
+                **{
+                    **dest_defaults,
+                    **{k: v for k, v in raw.items() if k in dest_fields},
+                }
+            )
         reasons: list[str] = []
 
         # ---- hard filter: recent visit exclusion ----
         if dest.id in recent_ids:
             continue
 
-        # ---- hard filter: budget ----
-        if f.budget is not None:
-            level = _cost_for_level(dest, trip_days)
-            estimated_total = level * _BASE_DAILY_COST * trip_days
-            if estimated_total > f.budget:
-                continue
+        # A destination that IS the traveller's own city is never excluded by
+        # region, trip-length feasibility, or season – a short same-city
+        # weekend (city-walk / staycation) must always be recommendable.
+        same_city = bool(f.origin) and _is_same_city(dest, f.origin)
 
         # ---- hard filter: region ----
-        if f.region and dest.region != f.region:
+        if f.region and dest.region != f.region and not same_city:
             continue
 
         # ---- hard filter: trip-length feasibility ----
-        if trip_cat == "short" and dest.region not in _NEARBY_REGIONS:
+        if (
+            trip_cat == "short"
+            and dest.region not in _NEARBY_REGIONS
+            and not same_city
+        ):
             continue
 
         # ---- hard filter: season ----
-        if dest.best_season and dest.best_season != trip_season:
+        if dest.best_season and dest.best_season != trip_season and not same_city:
             continue
+
+        # ---- budget (soft – never hard-excludes) ----
+        estimated_total = 0
+        over_budget = False
+        if f.budget is not None:
+            level = _cost_for_level(dest, trip_days)
+            estimated_total = level * _BASE_DAILY_COST * trip_days
+            over_budget = estimated_total > f.budget
+
+        # ---- same-city / staycation boost ----
+        if same_city and trip_cat == "short":
+            reasons.append(
+                "Same-city city-walk / staycation – great for a short weekend"
+            )
 
         # ---- scoring ----
         score = 0.0
@@ -217,12 +327,30 @@ def recommend(
                 score += len(overlap) * 10
                 reasons.append(f"Matches filter interests: {', '.join(overlap)}")
 
-        if trip_cat == "short" and dest.region in _NEARBY_REGIONS:
+        if same_city:
+            score += 35
+            if trip_cat != "short":
+                reasons.append(
+                    f"Same as origin ({f.origin}) – convenient staycation"
+                )
+        elif trip_cat == "short" and dest.region in _NEARBY_REGIONS:
             score += 10
             reasons.append("Good fit for short trip (nearby)")
         elif trip_cat == "long" and dest.region not in _NEARBY_REGIONS:
             score += 10
             reasons.append("Good fit for longer trip")
+
+        # ---- budget soft ranking ----
+        if f.budget is not None:
+            if over_budget:
+                score -= 25
+                reasons.append(
+                    f"Estimated cost ¥{estimated_total:,} exceeds budget "
+                    f"¥{f.budget:,.0f}"
+                )
+            else:
+                score += 8
+                reasons.append("Within budget")
 
         if dest.id in visited_ids:
             score -= 30
