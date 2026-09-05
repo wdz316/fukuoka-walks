@@ -62,6 +62,37 @@ def test_seed_destinations_idempotent_and_count() -> None:
         db.close()
 
 
+def test_seed_backfills_attractions_on_existing_rows() -> None:
+    db = _session()
+    try:
+        seed_destinations(db)
+        fukuoka = db.scalar(select(Destination).where(Destination.name == "Fukuoka"))
+        assert fukuoka is not None
+        # Simulate an old row seeded before attractions existed.
+        fukuoka.attractions = None
+        fukuoka.hotels = None
+        db.commit()
+        backfilled = seed_destinations(db)
+        db.refresh(fukuoka)
+        assert backfilled >= 1
+        names = [a["name"] for a in json.loads(fukuoka.attractions)]
+        assert "櫛田神社" in names
+        assert json.loads(fukuoka.hotels)
+    finally:
+        db.close()
+
+
+def test_fukuoka_seed_has_attractions_with_coords_and_links() -> None:
+    with (TEST_DATA_DIR / "destinations.json").open(encoding="utf-8") as f:
+        destinations = json.load(f)
+    fukuoka = next(d for d in destinations if d["name"] == "Fukuoka")
+    assert len(fukuoka["attractions"]) >= 3
+    for a in fukuoka["attractions"]:
+        assert isinstance(a["lat"], float) and isinstance(a["lng"], float)
+        assert a["url"].startswith("https://")
+    assert len(fukuoka["hotels"]) >= 1
+
+
 def test_trip_roundtrip_with_destination() -> None:
     db = _session()
     try:

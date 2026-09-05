@@ -36,4 +36,11 @@ describe('regionLabel', () => {
     expect(regionLabel('Somewhere')).toBe('Somewhere')
     expect(regionLabel(undefined)).toBe('')
   })
+
+  it('regression: screenshot cases render uniform Japanese', () => {
+    // 日本・东亚 / 中国・东日本 must never appear
+    expect(`${countryLabel('Japan')}・${regionLabel('East Asia')}`).toBe('日本・東アジア')
+    expect(`${countryLabel('China')}・${regionLabel('East Asia')}`).toBe('中国・東アジア')
+    expect(regionLabel('东亚')).toBe('東アジア')
+  })
 })

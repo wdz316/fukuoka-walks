@@ -22,6 +22,7 @@ import {
   type WalkType,
 } from '../lib/sameCity'
 import { countryLabel, regionLabel } from '../lib/i18n'
+import { buildRoute } from '../lib/routePlan'
 
 const HOLIDAY_TYPES: { value: HolidayType; label: string }[] = [
   { value: 'weekend', label: '週末' },
@@ -29,6 +30,25 @@ const HOLIDAY_TYPES: { value: HolidayType; label: string }[] = [
   { value: 'obon', label: 'お盆' },
   { value: 'golden_week', label: 'ゴールデンウィーク' },
   { value: 'custom', label: '指定なし' },
+]
+
+type TripScope = 'near' | 'far'
+
+const SCOPE_OPTIONS: { value: TripScope; label: string; hint: string }[] = [
+  { value: 'near', label: '近郊', hint: '日帰り〜2日・東アジア中心' },
+  { value: 'far', label: '長途', hint: '3日以上・地域を問わず' },
+]
+
+const HOT_DESTINATIONS = ['京都', '大阪', '福岡', '東京', '札幌']
+const NEARBY_REGIONS = [
+  { value: 'East Asia', label: '東アジア' },
+  { value: 'Southeast Asia', label: '東南アジア' },
+]
+const THEME_INTERESTS = [
+  { label: '美食', value: 'food' },
+  { label: '自然', value: 'nature' },
+  { label: '文化', value: 'culture' },
+  { label: '購物', value: 'shopping' },
 ]
 
 interface FormState {
@@ -40,6 +60,7 @@ interface FormState {
   destination: string
   interests: string
   region: string
+  scope: TripScope
   directDestination: string
   directDate: string
   walkType: WalkType
@@ -56,6 +77,7 @@ const emptyForm: FormState = {
   destination: '',
   interests: '',
   region: '',
+  scope: 'near',
   directDestination: '',
   directDate: '',
   walkType: 'city',
@@ -214,8 +236,23 @@ export default function PlanPage() {
       origin: form.origin || undefined,
       budget: budget && budget > 0 ? budget : undefined,
       interests: interests.length ? interests : undefined,
-      region: form.region || undefined,
+      // 長途 ignores the region limit so long-haul destinations are included;
+      // 近郊 keeps the user's region (short trips already bias nearby).
+      region: form.scope === 'far' ? undefined : form.region || undefined,
     }
+  }
+
+  function toggleThemeInterest(value: string) {
+    setForm((prev) => {
+      const cur = prev.interests
+        .split(/[,、\s]+/)
+        .map((s) => s.trim())
+        .filter(Boolean)
+      const next = cur.includes(value)
+        ? cur.filter((v) => v !== value)
+        : [...cur, value]
+      return { ...prev, interests: next.join(', ') }
+    })
   }
 
   async function runSameCitySearch() {
@@ -242,12 +279,15 @@ export default function PlanPage() {
       void runSameCitySearch()
       return
     }
-    void runRecommend(
-      buildRequest(),
-      [form.startDate, form.endDate, form.holidayType]
-        .filter(Boolean)
-        .join(' / '),
-    )
+    const req = buildRequest()
+    const scopeLabel = form.scope === 'far' ? '長途' : '近郊'
+    const parts = [form.startDate, form.endDate, scopeLabel, form.holidayType].filter(Boolean)
+    if (form.scope === 'far' && form.startDate && form.endDate) {
+      if (dayCount(form.startDate, form.endDate) < 3) {
+        parts.push('3日以上推奨')
+      }
+    }
+    void runRecommend(req, parts.join(' / '))
   }
 
   async function handleDirectSubmit(e: FormEvent) {
@@ -335,6 +375,9 @@ export default function PlanPage() {
   const budget = selectedDest && days ? estimatedBudget(selectedDest, days) : null
   const reasons = reasonList(selected?.reason)
   const matchedInterests = selected?.matched_interests ?? []
+  const route = selectedDest
+    ? buildRoute(selectedDest.attractions, selectedDest.hotels)
+    : []
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
@@ -427,6 +470,44 @@ export default function PlanPage() {
               </>
             ) : (
               <>
+                <div>
+                  <span className="text-sm text-slate-600">
+                    行程範囲 <span className="ml-1 text-xs text-slate-400">自由行（ツアーなし）</span>
+                  </span>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {SCOPE_OPTIONS.map((s) => (
+                      <Chip
+                        key={s.value}
+                        active={form.scope === s.value}
+                        onClick={() => update('scope', s.value)}
+                      >
+                        {s.label}
+                      </Chip>
+                    ))}
+                  </div>
+                  <p className="mt-1 text-xs text-slate-400">
+                    {SCOPE_OPTIONS.find((s) => s.value === form.scope)?.hint}
+                    {form.scope === 'far' ? '・地域の絞り込みを外します' : ''}
+                  </p>
+                </div>
+
+                <div>
+                  <span className="text-sm text-slate-600">人気目的地</span>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {HOT_DESTINATIONS.map((name) => (
+                      <Chip
+                        key={name}
+                        active={form.destination === name}
+                        onClick={() =>
+                          update('destination', form.destination === name ? '' : name)
+                        }
+                      >
+                        {name}
+                      </Chip>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <label className="block text-sm">
                     <span className="text-slate-600">出発日</span>
@@ -523,6 +604,38 @@ export default function PlanPage() {
                     className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
                   />
                 </label>
+
+                <div>
+                  <span className="text-sm text-slate-600">周辺・テーマから選ぶ</span>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {NEARBY_REGIONS.map((r) => (
+                      <Chip
+                        key={r.value}
+                        active={form.region === r.value}
+                        onClick={() =>
+                          update('region', form.region === r.value ? '' : r.value)
+                        }
+                      >
+                        周辺:{r.label}
+                      </Chip>
+                    ))}
+                    {THEME_INTERESTS.map((t) => {
+                      const cur = form.interests
+                        .split(/[,、\s]+/)
+                        .map((s) => s.trim())
+                        .filter(Boolean)
+                      return (
+                        <Chip
+                          key={t.value}
+                          active={cur.includes(t.value)}
+                          onClick={() => toggleThemeInterest(t.value)}
+                        >
+                          {t.label}
+                        </Chip>
+                      )
+                    })}
+                  </div>
+                </div>
 
                 <button
                   type="submit"
@@ -718,6 +831,65 @@ export default function PlanPage() {
                       </p>
                     )}
 
+                    {route.length > 0 && (
+                      <div className="mt-5">
+                        <h4 className="text-sm font-semibold text-slate-500">
+                          モデルルート（時間帯別）
+                        </h4>
+                        <div className="mt-2 space-y-3">
+                          {route.map((d, di) => (
+                            <div key={di} className="rounded-lg border border-slate-200 p-3">
+                              <p className="text-sm font-semibold text-rose-600">
+                                {d.day != null ? `${d.day}日目` : '日程共通'}
+                              </p>
+                              <ul className="mt-2 space-y-2">
+                                {d.stops.map((s, si) => (
+                                  <li key={si} className="flex gap-2 text-sm">
+                                    <span className="w-10 flex-none rounded bg-slate-100 px-1 py-0.5 text-center text-xs text-slate-600">
+                                      {s.timeLabel}
+                                    </span>
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-slate-800">
+                                        {s.kind === 'hotel' ? '🏨 ' : '📍 '}
+                                        {s.url ? (
+                                          <a
+                                            href={s.url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-rose-600 hover:text-rose-700"
+                                          >
+                                            {s.name}
+                                          </a>
+                                        ) : (
+                                          s.name
+                                        )}
+                                      </p>
+                                      <p className="text-xs text-slate-500">
+                                        移動：{s.transport}
+                                        {s.booking_url && (
+                                          <>
+                                            {' ・ '}
+                                            <a
+                                              href={s.booking_url}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              className="font-medium text-rose-600 hover:text-rose-700"
+                                            >
+                                              予約
+                                            </a>
+                                          </>
+                                        )}
+                                      </p>
+                                    </div>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {selectedDest.attractions &&
                       selectedDest.attractions.length > 0 && (
                         <div className="mt-5">
@@ -734,7 +906,7 @@ export default function PlanPage() {
                                   <p className="font-medium text-slate-800">{a.name}</p>
                                   {typeof a.day === 'number' && (
                                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-                                      1日目・{a.day}日目
+                                      {a.day}日目
                                     </span>
                                   )}
                                 </div>

@@ -38,9 +38,20 @@ def seed_destinations(db: Session) -> int:
         exists = db.scalar(
             select(Destination).where(Destination.name == row["name"])
         )
-        if exists is not None:
-            continue
         attractions_json, hotels_json = _serialize_attractions_hotels(row)
+        if exists is not None:
+            # Backfill attractions/hotels added to the seed data after the
+            # row was first created (e.g. Fukuoka). Never overwrites data.
+            updated = False
+            if not exists.attractions and attractions_json:
+                exists.attractions = attractions_json
+                updated = True
+            if not exists.hotels and hotels_json:
+                exists.hotels = hotels_json
+                updated = True
+            if updated:
+                created += 1
+            continue
         db.add(
             Destination(
                 name=row["name"],
