@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import DestinationMap from '../components/DestinationMap'
 import { api, type Destination } from '../lib'
+import { countryLabel, regionLabel } from '../lib/i18n'
 
 export default function DestinationPage() {
   const { id } = useParams<{ id: string }>()
@@ -67,7 +68,7 @@ export default function DestinationPage() {
                 {destination.name}
               </h1>
               <p className="mt-2 text-slate-500">
-                {destination.country}・{destination.region}
+                {countryLabel(destination.country)}・{regionLabel(destination.region)}
               </p>
               {destination.best_season && (
                 <p className="mt-3 inline-block rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">

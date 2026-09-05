@@ -18,6 +18,38 @@ const CATALOGUE: Destination[] = [
     description: "Ancient temples, traditional tea houses, and seasonal foliage.",
     best_season: "autumn",
     tags: ["culture", "history", "food"],
+    cost_level_1: 7,
+    cost_level_2: 6,
+    cost_level_3: 4,
+    cost_level_4: 3,
+    attractions: [
+      {
+        name: "伏見稲荷大社",
+        day: 1,
+        url: "https://inari.jp/",
+        booking_url: "https://inari.jp/",
+        phone: "075-641-7331",
+        address: "京都市伏見区深草薮之内町68",
+      },
+      {
+        name: "金閣寺",
+        day: 2,
+        url: "https://www.shokoku-ji.jp/kinkaku/",
+        booking_url: "https://www.shokoku-ji.jp/kinkaku/",
+        phone: "075-461-5226",
+        address: "京都市北区金閣寺町1",
+      },
+    ],
+    hotels: [
+      {
+        name: "祇園旅館 (Gion Hotel)",
+        day: 1,
+        url: "https://www.booking.com/searchresults.html?ss=%E7%A5%90%E5%9C%92+%E4%BA%AC%E9%83%BD",
+        booking_url: "https://www.booking.com/searchresults.html?ss=%E7%A5%90%E5%9C%92+%E4%BA%AC%E9%83%BD",
+        phone: "+81-75-XXX-XXXX",
+        address: "京都市東山区祇園町",
+      },
+    ],
     image_url: "https://example.com/kyoto.jpg",
   },
   {
@@ -109,6 +141,49 @@ const CATALOGUE: Destination[] = [
     best_season: "spring",
     tags: ["nature", "adventure", "eco"],
     image_url: "https://example.com/costarica.jpg",
+  },
+  {
+    id: 11,
+    name: "Fukuoka",
+    country: "Japan",
+    region: "Asia",
+    description:
+      "Kyushu's gateway city famed for yatai street stalls, the historic Kushida Shrine, and the relaxing Ohori Park.",
+    best_season: "autumn",
+    tags: ["city", "food", "culture", "nature"],
+    cost_level_1: 5,
+    cost_level_2: 4,
+    cost_level_3: 3,
+    cost_level_4: 2,
+    attractions: [
+      {
+        name: "櫛田神社",
+        day: 1,
+        url: "https://www.hakatagiondoyamakasa.com/",
+        booking_url: "",
+        phone: "092-291-2951",
+        address: "福岡市博多区上川端町1-41",
+      },
+      {
+        name: "大濠公園",
+        day: 1,
+        url: "https://www.ohorikouen.jp/",
+        booking_url: "",
+        phone: "092-741-2004",
+        address: "福岡市中央区大濠公園1-4",
+      },
+    ],
+    hotels: [
+      {
+        name: "キャナルシティ地区ホテル",
+        day: 1,
+        url: "https://www.booking.com/searchresults.html?ss=%E7%A6%8F%E5%B2%A1+%E3%82%AD%E3%83%A3%E3%83%8A%E3%83%AB%E3%82%B7%E3%83%86%E3%82%A3",
+        booking_url: "https://www.booking.com/searchresults.html?ss=%E7%A6%8F%E5%B2%A1",
+        phone: "+81-92-XXX-XXXX",
+        address: "福岡市博多区住吉",
+      },
+    ],
+    image_url: "https://example.com/fukuoka.jpg",
   },
 ];
 

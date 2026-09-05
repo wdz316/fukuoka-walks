@@ -9,6 +9,7 @@ export type {
   Destination,
   ExportFormat,
   HolidayType,
+  PlaceInfo,
   Preferences,
   RecommendRequest,
   Recommendation,

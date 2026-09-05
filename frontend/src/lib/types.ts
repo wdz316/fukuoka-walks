@@ -3,6 +3,17 @@ export type HolidayType = "weekend" | "three_day" | "obon" | "golden_week" | "cu
 export type AiProvider = "rule" | "openai";
 export type ExportFormat = "markdown" | "ics";
 
+export interface PlaceInfo {
+  name: string;
+  lat?: number;
+  lng?: number;
+  day?: number;
+  url?: string;
+  booking_url?: string;
+  phone?: string;
+  address?: string;
+}
+
 export interface Destination {
   id: number;
   name: string;
@@ -12,6 +23,12 @@ export interface Destination {
   best_season?: Season;
   tags?: string[];
   image_url?: string;
+  cost_level_1?: number;
+  cost_level_2?: number;
+  cost_level_3?: number;
+  cost_level_4?: number;
+  attractions?: PlaceInfo[];
+  hotels?: PlaceInfo[];
 }
 
 export interface Trip {

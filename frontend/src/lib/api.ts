@@ -12,6 +12,8 @@ import type {
 
 const BASE_URL = "";
 
+const REQUEST_TIMEOUT_MS = 20_000;
+
 function assertDefined<T>(value: T, label: string): asserts value is NonNullable<T> {
   if (value == null) throw new ApiClientError(`${label} is missing`);
 }
@@ -64,21 +66,33 @@ class FetchApi implements Api {
     path: string,
     init?: RequestInit,
   ): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...init?.headers,
-      },
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const res = await fetch(`${this.baseUrl}${path}`, {
+        ...init,
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+          ...init?.headers,
+        },
+      });
 
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      const err = body as ApiError;
-      throw new ApiClientError(err.detail ?? `HTTP ${res.status}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const err = body as ApiError;
+        throw new ApiClientError(err.detail ?? `HTTP ${res.status}`);
+      }
+
+      return res.json() as Promise<T>;
+    } catch (err) {
+      if (controller.signal.aborted && !(err instanceof ApiClientError)) {
+        throw new ApiClientError("リクエストがタイムアウトしました（再試行してください）");
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
     }
-
-    return res.json() as Promise<T>;
   }
 
   async healthCheck(): Promise<Record<string, unknown>> {
