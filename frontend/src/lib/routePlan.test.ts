@@ -56,4 +56,12 @@ describe('buildRoute', () => {
     expect(days.map((d) => d.day)).toEqual([1, 2])
     expect(days[0].stops.some((s) => s.kind === 'hotel')).toBe(true)
   })
+
+  it('caps main stops at 3 per day and parks overflow as extras', () => {
+    const many = [1, 2, 3, 4, 5].map((i) => ({ name: ` spot${i} `.trim(), day: 1 }))
+    const days = buildRoute(many, [], { days: 2 })
+    expect(days).toHaveLength(1)
+    expect(days[0].stops.map((s) => s.timeLabel)).toEqual(['午前', '午後', '夕方'])
+    expect(days[0].extras.map((s) => s.name)).toEqual(['spot4', 'spot5'])
+  })
 })

@@ -105,14 +105,12 @@ function dayCount(start: string, end: string): number {
   return Math.round((e - s) / 86_400_000) + 1
 }
 
-function nextWeekendDates(): { start: string; end: string } {
+function nextSaturday(): string {
   const now = new Date()
   const daysUntilSat = ((6 - now.getDay() + 7) % 7) || 7
   const sat = new Date(now)
   sat.setDate(now.getDate() + daysUntilSat)
-  const sun = new Date(sat)
-  sun.setDate(sat.getDate() + 1)
-  return { start: toISO(sat), end: toISO(sun) }
+  return toISO(sat)
 }
 
 function effectiveDirectDates(form: FormState): {
@@ -120,9 +118,11 @@ function effectiveDirectDates(form: FormState): {
   end: string
   defaultsApplied: boolean
 } {
+  // No date given: assume a single day (next Saturday). A 2-day weekend
+  // default wrongly produced 2日目 + hotels for what users see as a day trip.
   if (form.directDate) return { start: form.directDate, end: form.directDate, defaultsApplied: false }
-  const nw = nextWeekendDates()
-  return { start: nw.start, end: nw.end, defaultsApplied: true }
+  const sat = nextSaturday()
+  return { start: sat, end: sat, defaultsApplied: true }
 }
 
 function estimatedBudget(dest: Destination, days: number): number | null {
@@ -355,7 +355,7 @@ export default function PlanPage() {
       setPlanDates(plan)
       setMessage(
         plan.defaultsApplied
-          ? `「${displayName(match.name)}」の詳細を表示しています。出発日が未指定のため、次の週末（${plan.start}〜${plan.end}）を仮定しました。`
+          ? `「${displayName(match.name)}」の詳細を表示しています。出発日が未指定のため、次の土曜（${plan.start}、日帰り）を仮定しました。`
           : `「${displayName(match.name)}」の詳細を表示しています。`,
       )
     } catch (err: unknown) {
@@ -973,6 +973,31 @@ export default function PlanPage() {
                                   </li>
                                 ))}
                               </ul>
+                              {d.extras.length > 0 && (
+                                <div className="mt-2 rounded-lg bg-slate-50 p-2">
+                                  <p className="text-xs font-medium text-slate-500">
+                                    時間があれば寄りたい
+                                  </p>
+                                  <ul className="mt-1 space-y-1">
+                                    {d.extras.map((s, si) => (
+                                      <li key={si} className="text-xs text-slate-600">
+                                        ・{s.url ? (
+                                          <a
+                                            href={s.url}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-rose-600 hover:text-rose-700"
+                                          >
+                                            {s.name}
+                                          </a>
+                                        ) : (
+                                          s.name
+                                        )}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>

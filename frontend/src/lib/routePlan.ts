@@ -15,6 +15,8 @@ export interface RouteDay {
   /** Day number (1-based). `null` groups stops without day info. */
   day: number | null;
   stops: RouteStop[];
+  /** Overflow spots beyond the 3 daily slots (午前/午後/夕方). */
+  extras: RouteStop[];
 }
 
 const SLOTS = [
@@ -22,6 +24,9 @@ const SLOTS = [
   { label: "午後", transport: "電車・バス" },
   { label: "夕方", transport: "徒歩・タクシー" },
 ] as const;
+
+/** Max main-route attraction stops per day — keeps the plan relaxed. */
+const MAX_STOPS_PER_DAY = SLOTS.length;
 
 export interface RouteOptions {
   /** Trip length in days. Stops assigned to later days are dropped so a
@@ -56,8 +61,12 @@ export function buildRoute(
     groups.set(key, g);
   }
   const orderedDays = [...groups.keys()].sort((x, y) => (x ?? 9999) - (y ?? 9999));
+  const extraMap = new Map<number | null, RouteStop[]>();
   for (const day of orderedDays) {
-    const stops: RouteStop[] = (groups.get(day) ?? []).map((a, i) => {
+    const items = groups.get(day) ?? [];
+    const main = items.slice(0, MAX_STOPS_PER_DAY);
+    const overflow = items.slice(MAX_STOPS_PER_DAY);
+    const toStop = (a: PlaceInfo, i: number): RouteStop => {
       const slot = SLOTS[i % SLOTS.length];
       return {
         name: a.name,
@@ -69,8 +78,17 @@ export function buildRoute(
         phone: a.phone,
         address: a.address,
       };
-    });
+    };
+    const stops: RouteStop[] = main.map(toStop);
     byDay.set(day, stops);
+    if (overflow.length > 0) {
+      const extraStops = overflow.map((a) => ({
+        ...toStop(a, 0),
+        timeLabel: "予備",
+      }));
+      byDay.set(day, stops);
+      extraMap.set(day, extraStops);
+    }
   }
   // Hotels become 宿泊 stops on their day (or the last day when unassigned).
   // Day trips (includeHotels === false) never show overnight stays.
@@ -95,5 +113,5 @@ export function buildRoute(
   // If only a null-day group exists but hotels were unassigned, keep as is.
   return [...byDay.entries()]
     .sort(([x], [y]) => (x ?? 9999) - (y ?? 9999))
-    .map(([day, stops]) => ({ day, stops }));
+    .map(([day, stops]) => ({ day, stops, extras: extraMap.get(day) ?? [] }));
 }
