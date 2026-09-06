@@ -23,6 +23,14 @@ const SLOTS = [
   { label: "夕方", transport: "徒歩・タクシー" },
 ] as const;
 
+export interface RouteOptions {
+  /** Trip length in days. Stops assigned to later days are dropped so a
+   * 1-day trip never shows 2日目. */
+  days?: number;
+  /** Show 宿泊 hotel stops. Callers hide these for day trips. */
+  includeHotels?: boolean;
+}
+
 /**
  * Build a timed model route from a destination's attractions/hotels.
  * Attractions are grouped by their `day` field and assigned 午前/午後/夕方
@@ -32,12 +40,17 @@ const SLOTS = [
 export function buildRoute(
   attractions: readonly PlaceInfo[] | null | undefined,
   hotels: readonly PlaceInfo[] | null | undefined,
+  opts?: RouteOptions,
 ): RouteDay[] {
+  const maxDay = opts?.days;
+  const showHotels = opts?.includeHotels ?? true;
   const byDay = new Map<number | null, RouteStop[]>();
   const list = attractions ?? [];
   const groups = new Map<number | null, PlaceInfo[]>();
   for (const a of list) {
     const key = typeof a.day === "number" ? a.day : null;
+    // Drop stops scheduled after the trip ends (e.g. Day 2 on a 1-day trip).
+    if (key !== null && maxDay !== undefined && key > maxDay) continue;
     const g = groups.get(key) ?? [];
     g.push(a);
     groups.set(key, g);
@@ -60,9 +73,11 @@ export function buildRoute(
     byDay.set(day, stops);
   }
   // Hotels become 宿泊 stops on their day (or the last day when unassigned).
-  const hotelList = hotels ?? [];
+  // Day trips (includeHotels === false) never show overnight stays.
+  const hotelList = showHotels ? (hotels ?? []) : [];
   for (const h of hotelList) {
     const key = typeof h.day === "number" ? h.day : null;
+    if (key !== null && maxDay !== undefined && key > maxDay) continue;
     const stops = byDay.get(key) ?? [];
     stops.push({
       name: h.name,

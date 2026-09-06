@@ -176,6 +176,9 @@ export default function PlanPage() {
   const [message, setMessage] = useState<string | null>(null)
   const [savedTrip, setSavedTrip] = useState<Trip | null>(null)
   const [planDates, setPlanDates] = useState<{ start: string; end: string } | null>(null)
+  // Panel tab: 'auto' follows same-city detection, manual picks stick until
+  // 出発地/目的地 are edited again.
+  const [modeTab, setModeTab] = useState<'auto' | 'normal' | 'city'>('auto')
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -197,6 +200,14 @@ export default function PlanPage() {
       isSameCity(form.origin, form.destination),
     [form.origin, form.destination],
   )
+
+  const cityMode = modeTab === 'auto' ? sameCity : modeTab === 'city'
+
+  function updatePlace(key: 'origin' | 'destination', value: string) {
+    setForm((prev) => ({ ...prev, [key]: value }))
+    // Re-run auto detection when the user edits either city field.
+    setModeTab('auto')
+  }
 
   async function runRecommend(req: RecommendRequest, summary: string, pinQuery?: string) {
     setLoading(true)
@@ -289,7 +300,7 @@ export default function PlanPage() {
 
   function handleConditionSubmit(e: FormEvent) {
     e.preventDefault()
-    if (sameCity) {
+    if (cityMode) {
       void runSameCitySearch()
       return
     }
@@ -301,7 +312,7 @@ export default function PlanPage() {
         parts.push('3日以上推奨')
       }
     }
-    void runRecommend(req, parts.join(' / '), sameCity ? undefined : form.destination.trim() || undefined)
+    void runRecommend(req, parts.join(' / '), cityMode ? undefined : form.destination.trim() || undefined)
   }
 
   async function handleDirectSubmit(e: FormEvent) {
@@ -390,7 +401,11 @@ export default function PlanPage() {
   const reasons = reasonList(selected?.reason)
   const matchedInterests = selected?.matched_interests ?? []
   const route = selectedDest
-    ? buildRoute(selectedDest.attractions, selectedDest.hotels)
+    ? buildRoute(selectedDest.attractions, selectedDest.hotels, {
+        days: days > 0 ? days : undefined,
+        // Day trips never show overnight stays.
+        includeHotels: days === 0 || days >= 2,
+      })
     : []
 
   return (
@@ -412,8 +427,54 @@ export default function PlanPage() {
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">旅行条件から探す</h2>
           <form onSubmit={handleConditionSubmit} className="mt-4 space-y-4">
-            {sameCity ? (
+            <div>
+              <div className="flex gap-2 rounded-lg bg-slate-100 p-1">
+                <button
+                  type="button"
+                  onClick={() => setModeTab('normal')}
+                  className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    !cityMode ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                  }`}
+                >
+                  通常検索
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModeTab('city')}
+                  className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    cityMode ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
+                  }`}
+                >
+                  同都市プラン
+                </button>
+              </div>
+            </div>
+
+            {cityMode ? (
               <>
+                <div className="grid grid-cols-2 gap-4">
+                  <label className="block text-sm">
+                    <span className="text-slate-600">出発地</span>
+                    <input
+                      type="text"
+                      value={form.origin}
+                      onChange={(e) => updatePlace('origin', e.target.value)}
+                      placeholder="例: 福岡"
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                    />
+                  </label>
+                  <label className="block text-sm">
+                    <span className="text-slate-600">目的地</span>
+                    <input
+                      type="text"
+                      value={form.destination}
+                      onChange={(e) => updatePlace('destination', e.target.value)}
+                      placeholder="例: 福岡"
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                    />
+                  </label>
+                </div>
+
                 <label className="block text-sm">
                   <span className="text-slate-600">出発日</span>
                   <input
@@ -425,9 +486,11 @@ export default function PlanPage() {
                   />
                 </label>
 
-                <div className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
-                  出発地＝目的地：{form.origin} ⇔ {form.destination}（同都市モード）
-                </div>
+                {sameCity && (
+                  <div className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
+                    出発地＝目的地：{form.origin} ⇔ {form.destination}（同都市モード）
+                  </div>
+                )}
 
                 <div>
                   <span className="text-sm text-slate-600">過ごし方</span>
@@ -513,7 +576,7 @@ export default function PlanPage() {
                         key={name}
                         active={form.destination === name}
                         onClick={() =>
-                          update('destination', form.destination === name ? '' : name)
+                          updatePlace('destination', form.destination === name ? '' : name)
                         }
                       >
                         {name}
@@ -568,7 +631,7 @@ export default function PlanPage() {
                     <input
                       type="text"
                       value={form.origin}
-                      onChange={(e) => update('origin', e.target.value)}
+                      onChange={(e) => updatePlace('origin', e.target.value)}
                       placeholder="例: 東京"
                       className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
                     />
@@ -578,7 +641,7 @@ export default function PlanPage() {
                     <input
                       type="text"
                       value={form.destination}
-                      onChange={(e) => update('destination', e.target.value)}
+                      onChange={(e) => updatePlace('destination', e.target.value)}
                       placeholder="例: 福岡（出発地と同じなら同都市モード）"
                       className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
                     />

@@ -37,4 +37,23 @@ describe('buildRoute', () => {
     expect(days[0].day).toBeNull()
     expect(days[0].stops[0].timeLabel).toBe('午前')
   })
+
+  it('drops later days and hotels on a 1-day trip', () => {
+    const days = buildRoute([kushida, ohori, dazaifu], [hotel], {
+      days: 1,
+      includeHotels: false,
+    })
+    expect(days.map((d) => d.day)).toEqual([1])
+    expect(days[0].stops.map((s) => s.name)).toEqual(['櫛田神社', '大濠公園'])
+    expect(days[0].stops.every((s) => s.kind === 'attraction')).toBe(true)
+  })
+
+  it('keeps hotels on multi-day trips', () => {
+    const days = buildRoute([kushida, dazaifu], [hotel], {
+      days: 2,
+      includeHotels: true,
+    })
+    expect(days.map((d) => d.day)).toEqual([1, 2])
+    expect(days[0].stops.some((s) => s.kind === 'hotel')).toBe(true)
+  })
 })
