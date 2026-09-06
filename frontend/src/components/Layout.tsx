@@ -2,7 +2,7 @@ import { Link, NavLink, Outlet } from 'react-router-dom'
 
 const navItems = [
   { to: '/', label: 'ホーム' },
-  { to: '/plan', label: '旅行プラン' },
+  { to: '/plan', label: '旅行計画' },
   { to: '/history', label: '履歴' },
 ]
 

@@ -204,9 +204,17 @@ export default function PlanPage() {
   const cityMode = modeTab === 'auto' ? sameCity : modeTab === 'city'
 
   function updatePlace(key: 'origin' | 'destination', value: string) {
-    setForm((prev) => ({ ...prev, [key]: value }))
-    // Re-run auto detection when the user edits either city field.
-    setModeTab('auto')
+    const next = { ...form, [key]: value }
+    setForm(next)
+    // Auto-switch TO city mode only when both fields match. Never yank the
+    // user away mid-typing: manual tab picks stick until a real match appears.
+    if (
+      next.origin.trim().length > 0 &&
+      next.destination.trim().length > 0 &&
+      isSameCity(next.origin, next.destination)
+    ) {
+      setModeTab('auto')
+    }
   }
 
   async function runRecommend(req: RecommendRequest, summary: string, pinQuery?: string) {
@@ -369,7 +377,7 @@ export default function PlanPage() {
         ? { start: form.startDate, end: form.endDate || form.startDate }
         : effectiveDirectDates(form))
       const trip: Trip = {
-        title: `${displayName(selected.destination.name)} 旅行プラン`,
+        title: `${displayName(selected.destination.name)} 旅行計画`,
         start_date: plan.start,
         end_date: plan.end,
         destination_id: selected.destination.id,
@@ -410,7 +418,7 @@ export default function PlanPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
-      <h1 className="text-3xl font-bold text-slate-900">旅行プラン</h1>
+      <h1 className="text-3xl font-bold text-slate-900">旅行計画</h1>
 
       {error && (
         <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
@@ -486,9 +494,13 @@ export default function PlanPage() {
                   />
                 </label>
 
-                {sameCity && (
+                {sameCity ? (
                   <div className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
                     出発地＝目的地：{form.origin} ⇔ {form.destination}（同都市モード）
+                  </div>
+                ) : (
+                  <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">
+                    出発地と目的地に同じ都市を入力すると同都市検索になります。
                   </div>
                 )}
 
