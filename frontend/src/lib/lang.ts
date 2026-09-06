@@ -236,7 +236,7 @@ const ja: Dict = {
   'plan.searching': '検索中...',
   'plan.searchSameCity': '同都市プランを探す',
   'plan.tripScope': '行程範囲',
-  'plan.freeTravel': '自由行（ツアーなし）',
+    'plan.freeTravel': 'フリープラン（ツアーなし）',
   'plan.popularDestinations': '人気目的地',
   'plan.holidayType': '休暇の種類',
   'plan.budget': '予算（現地通貨）',
@@ -299,7 +299,7 @@ const ja: Dict = {
 
   // Options — trip scope
   'scope.near': '近郊',
-  'scope.far': '長途',
+    'scope.far': '長距離',
   'scope.nearHint': '日帰り〜2日・東アジア中心',
   'scope.farHint': '3日以上・地域を問わず',
 
@@ -307,7 +307,7 @@ const ja: Dict = {
   'theme.food': '美食',
   'theme.nature': '自然',
   'theme.culture': '文化',
-  'theme.shopping': '購物',
+    'theme.shopping': 'ショッピング',
 
   // Options — walk type
   'walk.city': '市内散策',
