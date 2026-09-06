@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, type Trip } from '../lib'
+import { useLang } from '../lib/lang'
 
 export default function HistoryPage() {
+  const { t } = useLang()
   const [trips, setTrips] = useState<Trip[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -13,20 +15,20 @@ export default function HistoryPage() {
       .getTrips()
       .then((data) => setTrips(data))
       .catch((e: unknown) =>
-        setError(e instanceof Error ? e.message : '履歴の取得に失敗しました'),
+        setError(e instanceof Error ? e.message : t('error.fetchHistory')),
       )
       .finally(() => setLoading(false))
-  }, [])
+  }, [t])
 
   async function handleDelete(id: number) {
-    if (!window.confirm('このプランを削除しますか？')) return
+    if (!window.confirm(t('history.confirmDelete'))) return
     setDeletingId(id)
     setError(null)
     try {
       await api.deleteTrip(id)
-      setTrips((prev) => prev.filter((t) => t.id !== id))
+      setTrips((prev) => prev.filter((trip) => trip.id !== id))
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : '削除に失敗しました')
+      setError(e instanceof Error ? e.message : t('error.deleteFailed'))
     } finally {
       setDeletingId(null)
     }
@@ -39,12 +41,12 @@ export default function HistoryPage() {
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-slate-900">履歴</h1>
+        <h1 className="text-3xl font-bold text-slate-900">{t('history.title')}</h1>
         <Link
           to="/plan"
           className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700"
         >
-          新しいプランを作成
+          {t('history.newPlan')}
         </Link>
       </div>
 
@@ -55,11 +57,9 @@ export default function HistoryPage() {
       )}
 
       {loading ? (
-        <p className="mt-8 text-slate-500">読み込み中...</p>
+        <p className="mt-8 text-slate-500">{t('common.loading')}</p>
       ) : trips.length === 0 ? (
-        <p className="mt-8 text-slate-500">
-          履歴はまだありません。プランを作成しましょう。
-        </p>
+        <p className="mt-8 text-slate-500">{t('history.empty')}</p>
       ) : (
         <ul className="mt-8 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
           {trips.map((trip) => (
@@ -79,7 +79,7 @@ export default function HistoryPage() {
                     to={`/destination/${trip.destination_id}`}
                     className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition-colors hover:bg-slate-50"
                   >
-                    詳細
+                    {t('history.detail')}
                   </Link>
                 )}
                 <button
@@ -87,14 +87,14 @@ export default function HistoryPage() {
                   onClick={() => handleExport(trip.id!, 'markdown')}
                   className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition-colors hover:bg-slate-50"
                 >
-                  MD出力
+                  {t('history.mdExport')}
                 </button>
                 <button
                   type="button"
                   onClick={() => handleExport(trip.id!, 'ics')}
                   className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition-colors hover:bg-slate-50"
                 >
-                  ICS出力
+                  {t('history.icsExport')}
                 </button>
                 <button
                   type="button"
@@ -102,13 +102,13 @@ export default function HistoryPage() {
                   disabled={deletingId === trip.id}
                   className="rounded-lg border border-rose-200 px-3 py-1.5 text-sm text-rose-600 transition-colors hover:bg-rose-50 disabled:opacity-50"
                 >
-                  {deletingId === trip.id ? '削除中...' : '削除'}
+                  {deletingId === trip.id ? t('history.deleting') : t('history.delete')}
                 </button>
                 <Link
                   to="/plan"
                   className="rounded-lg border border-slate-300 px-3 py-1.5 text-sm text-slate-700 transition-colors hover:bg-slate-50"
                 >
-                  再プラン
+                  {t('history.replan')}
                 </Link>
               </div>
             </li>

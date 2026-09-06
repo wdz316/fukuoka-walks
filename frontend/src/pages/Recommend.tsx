@@ -24,20 +24,21 @@ import {
 import { countryLabel, regionLabel, seasonLabel } from '../lib/i18n'
 import { displayName } from '../lib/placeNames'
 import { buildRoute } from '../lib/routePlan'
+import { useLang } from '../lib/lang'
 
 const HOLIDAY_TYPES: { value: HolidayType; label: string }[] = [
-  { value: 'weekend', label: '週末' },
-  { value: 'three_day', label: '三連休' },
-  { value: 'obon', label: 'お盆' },
-  { value: 'golden_week', label: 'ゴールデンウィーク' },
-  { value: 'custom', label: '指定なし' },
+  { value: 'weekend', label: 'holiday.weekend' },
+  { value: 'three_day', label: 'holiday.threeDay' },
+  { value: 'obon', label: 'holiday.obon' },
+  { value: 'golden_week', label: 'holiday.goldenWeek' },
+  { value: 'custom', label: 'holiday.custom' },
 ]
 
 type TripScope = 'near' | 'far'
 
 const SCOPE_OPTIONS: { value: TripScope; label: string; hint: string }[] = [
-  { value: 'near', label: '近郊', hint: '日帰り〜2日・東アジア中心' },
-  { value: 'far', label: '長途', hint: '3日以上・地域を問わず' },
+  { value: 'near', label: 'scope.near', hint: 'scope.nearHint' },
+  { value: 'far', label: 'scope.far', hint: 'scope.farHint' },
 ]
 
 const HOT_DESTINATIONS = ['京都', '大阪', '福岡', '東京', '札幌']
@@ -46,10 +47,10 @@ const NEARBY_REGIONS = [
   { value: 'Southeast Asia', label: '東南アジア' },
 ]
 const THEME_INTERESTS = [
-  { label: '美食', value: 'food' },
-  { label: '自然', value: 'nature' },
-  { label: '文化', value: 'culture' },
-  { label: '購物', value: 'shopping' },
+  { label: 'theme.food', value: 'food' },
+  { label: 'theme.nature', value: 'nature' },
+  { label: 'theme.culture', value: 'culture' },
+  { label: 'theme.shopping', value: 'shopping' },
 ]
 
 interface FormState {
@@ -166,6 +167,7 @@ function Chip({
 }
 
 export default function PlanPage() {
+  const { t } = useLang()
   const [form, setForm] = useState<FormState>(emptyForm)
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
   const [selected, setSelected] = useState<Recommendation | null>(null)
@@ -229,7 +231,7 @@ export default function PlanPage() {
       const data = await api.recommend(req)
       if (data.length === 0) {
         setRecommendations([])
-        setMessage(`「${summary}」に合う旅行先が見つかりませんでした。`)
+        setMessage(t('plan.msgNoMatch', { summary }))
         return
       }
       // Pin an explicitly requested destination to the top so the condition
@@ -239,18 +241,18 @@ export default function PlanPage() {
         const idx = data.findIndex((r) => destinationNameMatches(r.destination.name, pinQuery))
         if (idx > 0) {
           const [pinned] = data.splice(idx, 1)
-          pinned.reason = `指定の目的地：${pinned.reason ?? ''}`
+          pinned.reason = `${t('plan.pinnedPrefix')}${pinned.reason ?? ''}`
           ranked = [pinned, ...data]
         } else if (idx === 0) {
-          data[0].reason = `指定の目的地：${data[0].reason ?? ''}`
+          data[0].reason = `${t('plan.pinnedPrefix')}${data[0].reason ?? ''}`
         }
       }
       setRecommendations(ranked)
       setSelected(ranked[0])
-      setMessage(`「${summary}」のおすすめが ${ranked.length} 件見つかりました。`)
+      setMessage(t('plan.msgFound', { summary, n: ranked.length }))
     } catch (e: unknown) {
       setRecommendations([])
-      setError(e instanceof Error ? e.message : 'レコメンドに失敗しました')
+      setError(e instanceof Error ? e.message : t('plan.failRecommend'))
     } finally {
       setLoading(false)
     }
@@ -291,7 +293,7 @@ export default function PlanPage() {
   async function runSameCitySearch() {
     const start = form.startDate
     if (!start) {
-      setMessage('出発日を選択してください。')
+      setMessage(t('plan.msgSelectStartDate'))
       return
     }
     const days = sameCityDurationDays(form.stayDays)
@@ -303,7 +305,7 @@ export default function PlanPage() {
       interests: sameCityInterests(form.walkType, form.sameCityPrefs),
       holiday_type: sameCityHolidayType(form.walkType),
     }
-    await runRecommend(req, `${form.origin.trim()} の同都市プラン`)
+    await runRecommend(req, t('plan.sameCitySummary', { origin: form.origin.trim() }))
   }
 
   function handleConditionSubmit(e: FormEvent) {
@@ -313,11 +315,11 @@ export default function PlanPage() {
       return
     }
     const req = buildRequest()
-    const scopeLabel = form.scope === 'far' ? '長途' : '近郊'
+    const scopeLabel = t(form.scope === 'far' ? 'scope.far' : 'scope.near')
     const parts = [form.startDate, form.endDate, scopeLabel, form.holidayType].filter(Boolean)
     if (form.scope === 'far' && form.startDate && form.endDate) {
       if (dayCount(form.startDate, form.endDate) < 3) {
-        parts.push('3日以上推奨')
+        parts.push(t('plan.recommend3plus'))
       }
     }
     void runRecommend(req, parts.join(' / '), cityMode ? undefined : form.destination.trim() || undefined)
@@ -327,7 +329,7 @@ export default function PlanPage() {
     e.preventDefault()
     const query = form.directDestination.trim()
     if (!query) {
-      setMessage('目的地を入力してください。')
+      setMessage(t('plan.msgEnterDestination'))
       return
     }
     setDirectLoading(true)
@@ -341,13 +343,13 @@ export default function PlanPage() {
       const data = await api.getDestinations()
       const match = data.find((d) => destinationNameMatches(d.name, query))
       if (!match) {
-        setMessage(`指定した旅行先「${query}」が見つかりませんでした。表記を確認してください。`)
+        setMessage(t('plan.msgDestinationNotFound', { query }))
         return
       }
       const rec: Recommendation = {
         destination: match,
         score: 100,
-        reason: '指定した旅行先です',
+        reason: t('plan.specifiedDestination'),
       }
       setRecommendations([rec])
       setSelected(rec)
@@ -355,13 +357,16 @@ export default function PlanPage() {
       setPlanDates(plan)
       setMessage(
         plan.defaultsApplied
-          ? `「${displayName(match.name)}」の詳細を表示しています。出発日が未指定のため、次の土曜（${plan.start}、日帰り）を仮定しました。`
-          : `「${displayName(match.name)}」の詳細を表示しています。`,
+          ? t('plan.msgDirectWithDefault', {
+              name: displayName(match.name),
+              start: plan.start,
+            })
+          : t('plan.msgDirect', { name: displayName(match.name) }),
       )
     } catch (err: unknown) {
       setRecommendations([])
       setSelected(null)
-      setError(err instanceof Error ? err.message : '処理に失敗しました')
+      setError(err instanceof Error ? err.message : t('error.processFailed'))
     } finally {
       setDirectLoading(false)
     }
@@ -377,7 +382,7 @@ export default function PlanPage() {
         ? { start: form.startDate, end: form.endDate || form.startDate }
         : effectiveDirectDates(form))
       const trip: Trip = {
-        title: `${displayName(selected.destination.name)} 旅行計画`,
+        title: t('plan.tripTitle', { name: displayName(selected.destination.name) }),
         start_date: plan.start,
         end_date: plan.end,
         destination_id: selected.destination.id,
@@ -385,9 +390,9 @@ export default function PlanPage() {
       }
       const saved = await api.saveTrip(trip)
       setSavedTrip(saved)
-      setMessage('プランを保存しました。履歴から確認できます。')
+      setMessage(t('plan.msgSaved'))
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : '保存に失敗しました')
+      setError(err instanceof Error ? err.message : t('plan.failSave'))
     } finally {
       setSaving(false)
     }
@@ -418,7 +423,7 @@ export default function PlanPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
-      <h1 className="text-3xl font-bold text-slate-900">旅行計画</h1>
+      <h1 className="text-3xl font-bold text-slate-900">{t('plan.title')}</h1>
 
       {error && (
         <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
@@ -433,7 +438,7 @@ export default function PlanPage() {
 
       <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">旅行条件から探す</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{t('plan.searchByConditions')}</h2>
           <form onSubmit={handleConditionSubmit} className="mt-4 space-y-4">
             <div>
               <div className="flex gap-2 rounded-lg bg-slate-100 p-1">
@@ -444,7 +449,7 @@ export default function PlanPage() {
                     !cityMode ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
                   }`}
                 >
-                  通常検索
+                  {t('plan.normalSearch')}
                 </button>
                 <button
                   type="button"
@@ -453,7 +458,7 @@ export default function PlanPage() {
                     cityMode ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
                   }`}
                 >
-                  同都市プラン
+                  {t('plan.sameCityPlan')}
                 </button>
               </div>
             </div>
@@ -462,7 +467,7 @@ export default function PlanPage() {
               <>
                 <div className="grid grid-cols-2 gap-4">
                   <label className="block text-sm">
-                    <span className="text-slate-600">出発地</span>
+                    <span className="text-slate-600">{t('plan.origin')}</span>
                     <input
                       type="text"
                       value={form.origin}
@@ -472,7 +477,7 @@ export default function PlanPage() {
                     />
                   </label>
                   <label className="block text-sm">
-                    <span className="text-slate-600">目的地</span>
+                    <span className="text-slate-600">{t('plan.destination')}</span>
                     <input
                       type="text"
                       value={form.destination}
@@ -484,7 +489,7 @@ export default function PlanPage() {
                 </div>
 
                 <label className="block text-sm">
-                  <span className="text-slate-600">出発日</span>
+                  <span className="text-slate-600">{t('plan.startDate')}</span>
                   <input
                     type="date"
                     required
@@ -496,16 +501,16 @@ export default function PlanPage() {
 
                 {sameCity ? (
                   <div className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
-                    出発地＝目的地：{form.origin} ⇔ {form.destination}（同都市モード）
+                    {t('plan.sameCityMode', { origin: form.origin, destination: form.destination })}
                   </div>
                 ) : (
                   <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">
-                    出発地と目的地に同じ都市を入力すると同都市検索になります。
+                    {t('plan.sameCityHint')}
                   </div>
                 )}
 
                 <div>
-                  <span className="text-sm text-slate-600">過ごし方</span>
+                  <span className="text-sm text-slate-600">{t('plan.howToSpend')}</span>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {WALK_TYPES.map((w) => (
                       <Chip
@@ -513,14 +518,14 @@ export default function PlanPage() {
                         active={form.walkType === w.value}
                         onClick={() => update('walkType', w.value)}
                       >
-                        {w.label}
+                        {t(w.label)}
                       </Chip>
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <span className="text-sm text-slate-600">好み</span>
+                  <span className="text-sm text-slate-600">{t('plan.preferences')}</span>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {SAME_CITY_PREF_OPTIONS.map((p) => (
                       <Chip
@@ -528,14 +533,14 @@ export default function PlanPage() {
                         active={form.sameCityPrefs.includes(p.value)}
                         onClick={() => togglePref(p.value)}
                       >
-                        {p.label}
+                        {t(p.label)}
                       </Chip>
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <span className="text-sm text-slate-600">滞在時間</span>
+                  <span className="text-sm text-slate-600">{t('plan.stayDuration')}</span>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {STAY_LENGTHS.map((s) => (
                       <Chip
@@ -543,7 +548,7 @@ export default function PlanPage() {
                         active={form.stayDays === s.value}
                         onClick={() => update('stayDays', s.value)}
                       >
-                        {s.label}
+                        {t(s.label)}
                       </Chip>
                     ))}
                   </div>
@@ -554,14 +559,14 @@ export default function PlanPage() {
                   disabled={loading}
                   className="w-full rounded-lg bg-rose-600 px-4 py-3 font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
                 >
-                  {loading ? '検索中...' : '同都市プランを探す'}
+                  {loading ? t('plan.searching') : t('plan.searchSameCity')}
                 </button>
               </>
             ) : (
               <>
                 <div>
                   <span className="text-sm text-slate-600">
-                    行程範囲 <span className="ml-1 text-xs text-slate-400">自由行（ツアーなし）</span>
+                    {t('plan.tripScope')} <span className="ml-1 text-xs text-slate-400">{t('plan.freeTravel')}</span>
                   </span>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {SCOPE_OPTIONS.map((s) => (
@@ -570,18 +575,18 @@ export default function PlanPage() {
                         active={form.scope === s.value}
                         onClick={() => update('scope', s.value)}
                       >
-                        {s.label}
+                        {t(s.label)}
                       </Chip>
                     ))}
                   </div>
                   <p className="mt-1 text-xs text-slate-400">
-                    {SCOPE_OPTIONS.find((s) => s.value === form.scope)?.hint}
-                    {form.scope === 'far' ? '・地域の絞り込みを外します' : ''}
+                    {t(SCOPE_OPTIONS.find((s) => s.value === form.scope)?.hint ?? '')}
+                    {form.scope === 'far' ? t('plan.regionUnlimited') : ''}
                   </p>
                 </div>
 
                 <div>
-                  <span className="text-sm text-slate-600">人気目的地</span>
+                  <span className="text-sm text-slate-600">{t('plan.popularDestinations')}</span>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {HOT_DESTINATIONS.map((name) => (
                       <Chip
@@ -599,7 +604,7 @@ export default function PlanPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <label className="block text-sm">
-                    <span className="text-slate-600">出発日</span>
+                    <span className="text-slate-600">{t('plan.startDate')}</span>
                     <input
                       type="date"
                       required
@@ -609,7 +614,7 @@ export default function PlanPage() {
                     />
                   </label>
                   <label className="block text-sm">
-                    <span className="text-slate-600">終了日</span>
+                    <span className="text-slate-600">{t('plan.endDate')}</span>
                     <input
                       type="date"
                       required
@@ -621,7 +626,7 @@ export default function PlanPage() {
                 </div>
 
                 <label className="block text-sm">
-                  <span className="text-slate-600">休暇の種類</span>
+                  <span className="text-slate-600">{t('plan.holidayType')}</span>
                   <select
                     value={form.holidayType}
                     onChange={(e) =>
@@ -631,7 +636,7 @@ export default function PlanPage() {
                   >
                     {HOLIDAY_TYPES.map((h) => (
                       <option key={h.value} value={h.value}>
-                        {h.label}
+                        {t(h.label)}
                       </option>
                     ))}
                   </select>
@@ -639,7 +644,7 @@ export default function PlanPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <label className="block text-sm">
-                    <span className="text-slate-600">出発地</span>
+                    <span className="text-slate-600">{t('plan.origin')}</span>
                     <input
                       type="text"
                       value={form.origin}
@@ -649,7 +654,7 @@ export default function PlanPage() {
                     />
                   </label>
                   <label className="block text-sm">
-                    <span className="text-slate-600">目的地</span>
+                    <span className="text-slate-600">{t('plan.destination')}</span>
                     <input
                       type="text"
                       value={form.destination}
@@ -661,7 +666,7 @@ export default function PlanPage() {
                 </div>
 
                 <label className="block text-sm">
-                  <span className="text-slate-600">予算（現地通貨）</span>
+                  <span className="text-slate-600">{t('plan.budget')}</span>
                   <input
                     type="number"
                     min={0}
@@ -673,7 +678,7 @@ export default function PlanPage() {
                 </label>
 
                 <label className="block text-sm">
-                  <span className="text-slate-600">興味（カンマ区切り）</span>
+                  <span className="text-slate-600">{t('plan.interests')}</span>
                   <input
                     type="text"
                     value={form.interests}
@@ -684,7 +689,7 @@ export default function PlanPage() {
                 </label>
 
                 <label className="block text-sm">
-                  <span className="text-slate-600">地域</span>
+                  <span className="text-slate-600">{t('plan.region')}</span>
                   <input
                     type="text"
                     value={form.region}
@@ -695,7 +700,7 @@ export default function PlanPage() {
                 </label>
 
                 <div>
-                  <span className="text-sm text-slate-600">周辺・テーマから選ぶ</span>
+                  <span className="text-sm text-slate-600">{t('plan.nearbyTheme')}</span>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {NEARBY_REGIONS.map((r) => (
                       <Chip
@@ -705,21 +710,21 @@ export default function PlanPage() {
                           update('region', form.region === r.value ? '' : r.value)
                         }
                       >
-                        周辺:{r.label}
+                        {t('plan.nearbyPrefix')}{r.label}
                       </Chip>
                     ))}
-                    {THEME_INTERESTS.map((t) => {
+                    {THEME_INTERESTS.map((ti) => {
                       const cur = form.interests
                         .split(/[,、\s]+/)
                         .map((s) => s.trim())
                         .filter(Boolean)
                       return (
                         <Chip
-                          key={t.value}
-                          active={cur.includes(t.value)}
-                          onClick={() => toggleThemeInterest(t.value)}
+                          key={ti.value}
+                          active={cur.includes(ti.value)}
+                          onClick={() => toggleThemeInterest(ti.value)}
                         >
-                          {t.label}
+                          {t(ti.label)}
                         </Chip>
                       )
                     })}
@@ -731,7 +736,7 @@ export default function PlanPage() {
                   disabled={loading}
                   className="w-full rounded-lg bg-rose-600 px-4 py-3 font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
                 >
-                  {loading ? '検索中...' : 'レコメンド取得'}
+                  {loading ? t('plan.searching') : t('plan.getRecommendations')}
                 </button>
               </>
             )}
@@ -740,11 +745,11 @@ export default function PlanPage() {
 
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">
-            目的地を指定
+            {t('plan.specifyDestination')}
           </h2>
           <form onSubmit={handleDirectSubmit} className="mt-4 space-y-4">
             <label className="block text-sm">
-              <span className="text-slate-600">目的地</span>
+              <span className="text-slate-600">{t('plan.destination')}</span>
               <input
                 type="text"
                 value={form.directDestination}
@@ -754,7 +759,7 @@ export default function PlanPage() {
               />
             </label>
             <label className="block text-sm">
-              <span className="text-slate-600">出発日</span>
+              <span className="text-slate-600">{t('plan.startDate')}</span>
               <input
                 type="date"
                 value={form.directDate}
@@ -767,7 +772,7 @@ export default function PlanPage() {
               disabled={directLoading || !form.directDestination}
               className="w-full rounded-lg border border-slate-300 px-4 py-3 font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
             >
-              {directLoading ? '処理中...' : 'この目的地でプランを作成'}
+              {directLoading ? t('plan.processing') : t('plan.createWithDestination')}
             </button>
           </form>
         </section>
@@ -775,7 +780,7 @@ export default function PlanPage() {
 
       {recommendations.length > 0 && (
         <section className="mt-10">
-          <h2 className="text-lg font-semibold text-slate-900">おすすめの旅行先</h2>
+          <h2 className="text-lg font-semibold text-slate-900">{t('plan.recommendedDestinations')}</h2>
           <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-3">
             <ul className="space-y-3 lg:col-span-1">
               {recommendations.map((rec) => {
@@ -799,7 +804,7 @@ export default function PlanPage() {
                           {displayName(rec.destination.name)}
                         </span>
                         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                          適合 {Math.round(rec.score)}%
+                           {t('plan.fitScore', { score: Math.round(rec.score) })}
                         </span>
                       </div>
                       <p className="mt-1 text-sm text-slate-600">
@@ -850,14 +855,14 @@ export default function PlanPage() {
                         {displayName(selectedDest.name)}
                       </h3>
                       <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                        適合 {Math.round(selected!.score)}%
+                        {t('plan.fitScore', { score: Math.round(selected!.score) })}
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-slate-500">
                       {countryLabel(selectedDest.country)}・{regionLabel(selectedDest.region)}
                       {selectedDest.best_season && (
                         <span className="ml-2 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-                          ベストシーズン：{seasonLabel(selectedDest.best_season)}
+                          {t('plan.bestSeason', { season: seasonLabel(selectedDest.best_season) })}
                         </span>
                       )}
                     </p>
@@ -881,7 +886,7 @@ export default function PlanPage() {
                     {(reasons.length > 0 || matchedInterests.length > 0) && (
                       <div className="mt-4">
                         <h4 className="text-sm font-semibold text-slate-500">
-                          レコメンド理由
+                          {t('plan.recommendReason')}
                         </h4>
                         {reasons.length > 0 && (
                           <ul className="mt-2 space-y-1 text-sm text-slate-600">
@@ -910,26 +915,32 @@ export default function PlanPage() {
 
                     {planDates && (
                       <p className="mt-4 text-sm text-slate-600">
-                        予定：{planDates.start} 〜 {planDates.end}（{days}日間）
+                        {t('plan.schedule', {
+                          start: planDates.start,
+                          end: planDates.end,
+                          days,
+                        })}
                       </p>
                     )}
 
                     {budget != null && (
                       <p className="mt-1 text-sm text-slate-600">
-                        予算目安：約 ¥{budget.toLocaleString('ja-JP')}
+                        {t('plan.budgetEstimate', {
+                          amount: budget.toLocaleString('ja-JP'),
+                        })}
                       </p>
                     )}
 
                     {route.length > 0 && (
                       <div className="mt-5">
                         <h4 className="text-sm font-semibold text-slate-500">
-                          モデルルート（時間帯別）
+                          {t('plan.modelRoute')}
                         </h4>
                         <div className="mt-2 space-y-3">
                           {route.map((d, di) => (
                             <div key={di} className="rounded-lg border border-slate-200 p-3">
                               <p className="text-sm font-semibold text-rose-600">
-                                {d.day != null ? `${d.day}日目` : '日程共通'}
+                                {d.day != null ? t('plan.dayX', { day: d.day }) : t('plan.commonSchedule')}
                               </p>
                               <ul className="mt-2 space-y-2">
                                 {d.stops.map((s, si) => (
@@ -954,7 +965,7 @@ export default function PlanPage() {
                                         )}
                                       </p>
                                       <p className="text-xs text-slate-500">
-                                        移動：{s.transport}
+                                        {t('plan.transport', { transport: s.transport })}
                                         {s.booking_url && (
                                           <>
                                             {' ・ '}
@@ -964,7 +975,7 @@ export default function PlanPage() {
                                               rel="noreferrer"
                                               className="font-medium text-rose-600 hover:text-rose-700"
                                             >
-                                              予約
+                                              {t('plan.book')}
                                             </a>
                                           </>
                                         )}
@@ -976,7 +987,7 @@ export default function PlanPage() {
                               {d.extras.length > 0 && (
                                 <div className="mt-2 rounded-lg bg-slate-50 p-2">
                                   <p className="text-xs font-medium text-slate-500">
-                                    時間があれば寄りたい
+                                    {t('plan.ifTimeVisit')}
                                   </p>
                                   <ul className="mt-1 space-y-1">
                                     {d.extras.map((s, si) => (
@@ -1008,7 +1019,7 @@ export default function PlanPage() {
                       selectedDest.attractions.length > 0 && (
                         <div className="mt-5">
                           <h4 className="text-sm font-semibold text-slate-500">
-                            観光スポット
+                            {t('plan.sights')}
                           </h4>
                           <ul className="mt-2 space-y-2">
                             {selectedDest.attractions.map((a, i) => (
@@ -1020,7 +1031,7 @@ export default function PlanPage() {
                                   <p className="font-medium text-slate-800">{a.name}</p>
                                   {typeof a.day === 'number' && (
                                     <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-                                      {a.day}日目
+                                      {t('plan.dayX', { day: a.day })}
                                     </span>
                                   )}
                                 </div>
@@ -1039,7 +1050,7 @@ export default function PlanPage() {
                                         rel="noreferrer"
                                         className="font-medium text-rose-600 hover:text-rose-700"
                                       >
-                                        公式サイト
+                                        {t('plan.officialSite')}
                                       </a>
                                     )}
                                     {a.booking_url && (
@@ -1049,7 +1060,7 @@ export default function PlanPage() {
                                         rel="noreferrer"
                                         className="font-medium text-rose-600 hover:text-rose-700"
                                       >
-                                        予約
+                                        {t('plan.book')}
                                       </a>
                                     )}
                                   </div>
@@ -1063,7 +1074,7 @@ export default function PlanPage() {
                     {selectedDest.hotels && selectedDest.hotels.length > 0 && (
                       <div className="mt-5">
                         <h4 className="text-sm font-semibold text-slate-500">
-                          ホテル
+                          {t('plan.hotels')}
                         </h4>
                         <ul className="mt-2 space-y-2">
                           {selectedDest.hotels.map((h, i) => (
@@ -1087,7 +1098,7 @@ export default function PlanPage() {
                                       rel="noreferrer"
                                       className="font-medium text-rose-600 hover:text-rose-700"
                                     >
-                                      公式サイト
+                                      {t('plan.officialSite')}
                                     </a>
                                   )}
                                   {h.booking_url && (
@@ -1097,7 +1108,7 @@ export default function PlanPage() {
                                       rel="noreferrer"
                                       className="font-medium text-rose-600 hover:text-rose-700"
                                     >
-                                      予約
+                                      {t('plan.book')}
                                     </a>
                                   )}
                                 </div>
@@ -1115,7 +1126,7 @@ export default function PlanPage() {
                         disabled={!canSave || saving || hasSaved}
                         className="rounded-lg bg-rose-600 px-5 py-2.5 font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
                       >
-                        {hasSaved ? '保存済み' : saving ? '保存中...' : 'プランを保存'}
+                        {hasSaved ? t('plan.saved') : saving ? t('plan.saving') : t('plan.savePlan')}
                       </button>
                       {hasSaved && (
                         <>
@@ -1124,14 +1135,14 @@ export default function PlanPage() {
                             onClick={() => handleExport('markdown')}
                             className="rounded-lg border border-slate-300 px-5 py-2.5 font-medium text-slate-700 transition-colors hover:bg-slate-50"
                           >
-                            マークダウンで出力
+                            {t('plan.exportMarkdown')}
                           </button>
                           <button
                             type="button"
                             onClick={() => handleExport('ics')}
                             className="rounded-lg border border-slate-300 px-5 py-2.5 font-medium text-slate-700 transition-colors hover:bg-slate-50"
                           >
-                            ICS（カレンダー）で出力
+                            {t('plan.exportIcs')}
                           </button>
                         </>
                       )}
@@ -1140,7 +1151,7 @@ export default function PlanPage() {
                 </div>
               ) : (
                 <div className="flex h-80 items-center justify-center rounded-2xl border border-dashed border-slate-300 text-slate-400">
-                  旅行先を選択してください
+                  {t('plan.selectDestination')}
                 </div>
               )}
             </div>

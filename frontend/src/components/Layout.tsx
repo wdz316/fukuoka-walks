@@ -1,12 +1,20 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
+import { useLang, type Lang } from '../lib/lang'
 
 const navItems = [
-  { to: '/', label: 'ホーム' },
-  { to: '/plan', label: '旅行計画' },
-  { to: '/history', label: '履歴' },
+  { to: '/', label: 'nav.home' },
+  { to: '/plan', label: 'nav.plan' },
+  { to: '/history', label: 'nav.history' },
+]
+
+const LANGS: { value: Lang; label: string }[] = [
+  { value: 'zh', label: '中文' },
+  { value: 'ja', label: '日本語' },
 ]
 
 export default function Layout() {
+  const { t, lang, setLang } = useLang()
+
   return (
     <div className="min-h-screen flex flex-col">
       <header className="border-b border-slate-200 bg-white">
@@ -26,9 +34,25 @@ export default function Layout() {
                     : 'text-slate-500 transition-colors hover:text-slate-900'
                 }
               >
-                {item.label}
+                {t(item.label)}
               </NavLink>
             ))}
+            <div className="ml-2 flex items-center overflow-hidden rounded-full border border-slate-300">
+              {LANGS.map((l) => (
+                <button
+                  key={l.value}
+                  type="button"
+                  onClick={() => setLang(l.value)}
+                  className={`px-3 py-1 text-sm transition-colors ${
+                    lang === l.value
+                      ? 'bg-rose-600 font-medium text-white'
+                      : 'text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {l.label}
+                </button>
+              ))}
+            </div>
           </nav>
         </div>
       </header>

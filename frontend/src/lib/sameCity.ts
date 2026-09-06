@@ -1,25 +1,25 @@
 import type { HolidayType } from "./types";
 
 export const WALK_TYPES = [
-  { value: "city", label: "市内散策" },
-  { value: "suburban", label: "近郊日帰り" },
-  { value: "stay", label: "宿泊ステイ" },
+  { value: "city", label: "walk.city" },
+  { value: "suburban", label: "walk.suburban" },
+  { value: "stay", label: "walk.stay" },
 ] as const;
 export type WalkType = (typeof WALK_TYPES)[number]["value"];
 
 export const SAME_CITY_PREF_OPTIONS = [
-  { value: "food", label: "グルメ" },
-  { value: "nature", label: "自然" },
-  { value: "culture", label: "文化" },
-  { value: "family", label: "親子" },
-  { value: "shopping", label: "ショッピング" },
+  { value: "food", label: "pref.food" },
+  { value: "nature", label: "pref.nature" },
+  { value: "culture", label: "pref.culture" },
+  { value: "family", label: "pref.family" },
+  { value: "shopping", label: "pref.shopping" },
 ] as const;
 export type SameCityPref = (typeof SAME_CITY_PREF_OPTIONS)[number]["value"];
 
 export const STAY_LENGTHS = [
-  { value: "half", label: "半日" },
-  { value: "one", label: "1日" },
-  { value: "two", label: "2日" },
+  { value: "half", label: "stay.half" },
+  { value: "one", label: "stay.one" },
+  { value: "two", label: "stay.two" },
 ] as const;
 export type StayLength = (typeof STAY_LENGTHS)[number]["value"];
 

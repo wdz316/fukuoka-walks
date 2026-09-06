@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { differenceParts } from '../lib/countdown'
+import { useLang } from '../lib/lang'
 
 interface CountdownProps {
   startDate: string
@@ -10,6 +11,7 @@ function pad(n: number): string {
 }
 
 export default function Countdown({ startDate }: CountdownProps) {
+  const { t } = useLang()
   const target = useMemo(() => new Date(`${startDate}T00:00:00`), [startDate])
   const [now, setNow] = useState(() => new Date())
 
@@ -24,35 +26,35 @@ export default function Countdown({ startDate }: CountdownProps) {
   return (
     <div className="flex items-center gap-4">
       {started ? (
-        <span className="text-sm font-medium text-slate-600">出発日です！</span>
+        <span className="text-sm font-medium text-slate-600">{t('countdown.departure')}</span>
       ) : (
         <>
           <div className="flex flex-col items-center">
             <span className="text-3xl font-bold text-slate-900">
               {pad(parts.days)}
             </span>
-            <span className="text-xs text-slate-500">日</span>
+            <span className="text-xs text-slate-500">{t('countdown.days')}</span>
           </div>
           <span className="text-2xl font-bold text-slate-400">:</span>
           <div className="flex flex-col items-center">
             <span className="text-3xl font-bold text-slate-900">
               {pad(parts.hours)}
             </span>
-            <span className="text-xs text-slate-500">時間</span>
+            <span className="text-xs text-slate-500">{t('countdown.hours')}</span>
           </div>
           <span className="text-2xl font-bold text-slate-400">:</span>
           <div className="flex flex-col items-center">
             <span className="text-3xl font-bold text-slate-900">
               {pad(parts.minutes)}
             </span>
-            <span className="text-xs text-slate-500">分</span>
+            <span className="text-xs text-slate-500">{t('countdown.minutes')}</span>
           </div>
           <span className="text-2xl font-bold text-slate-400">:</span>
           <div className="flex flex-col items-center">
             <span className="text-3xl font-bold text-slate-900">
               {pad(parts.seconds)}
             </span>
-            <span className="text-xs text-slate-500">秒</span>
+            <span className="text-xs text-slate-500">{t('countdown.seconds')}</span>
           </div>
         </>
       )}

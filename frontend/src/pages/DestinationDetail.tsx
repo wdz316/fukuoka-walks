@@ -3,8 +3,10 @@ import { Link, useParams } from 'react-router-dom'
 import DestinationMap from '../components/DestinationMap'
 import { api, type Destination } from '../lib'
 import { countryLabel, regionLabel } from '../lib/i18n'
+import { useLang } from '../lib/lang'
 
 export default function DestinationPage() {
+  const { t } = useLang()
   const { id } = useParams<{ id: string }>()
   const destinationId = Number(id)
   const [destination, setDestination] = useState<Destination | null>(null)
@@ -20,14 +22,14 @@ export default function DestinationPage() {
         if (!active) return
         const found = data.find((d) => d.id === destinationId)
         if (!found) {
-          setError('旅行先が見つかりませんでした')
+          setError(t('error.notFoundDestination'))
         } else {
           setDestination(found)
         }
       })
       .catch((e: unknown) => {
         if (!active) return
-        setError(e instanceof Error ? e.message : '旅行先の取得に失敗しました')
+        setError(e instanceof Error ? e.message : t('error.fetchDestination'))
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -35,7 +37,7 @@ export default function DestinationPage() {
     return () => {
       active = false
     }
-  }, [destinationId])
+  }, [destinationId, t])
 
   const seasonLabels: Record<string, string> = {
     spring: '春',
@@ -50,7 +52,7 @@ export default function DestinationPage() {
         to="/history"
         className="text-sm font-medium text-rose-600 hover:text-rose-700"
       >
-        ← 履歴に戻る
+        ← {t('common.backToHistory')}
       </Link>
 
       {error && (
@@ -60,7 +62,7 @@ export default function DestinationPage() {
       )}
 
       {Number.isFinite(destinationId) && loading ? (
-        <p className="mt-8 text-slate-500">読み込み中...</p>
+        <p className="mt-8 text-slate-500">{t('common.loading')}</p>
       ) : !destination ? null : (
         <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-2">
             <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -72,7 +74,9 @@ export default function DestinationPage() {
               </p>
               {destination.best_season && (
                 <p className="mt-3 inline-block rounded-full bg-slate-100 px-3 py-1 text-sm text-slate-700">
-                  おすすめシーズン：{seasonLabels[destination.best_season]}
+                  {t('dest.recommendedSeason', {
+                    season: seasonLabels[destination.best_season],
+                  })}
                 </p>
               )}
               {destination.description && (
@@ -105,7 +109,7 @@ export default function DestinationPage() {
                   to="/plan"
                   className="rounded-lg bg-rose-600 px-5 py-2.5 font-medium text-white transition-colors hover:bg-rose-700"
                 >
-                  この旅行先でプランを作成
+                  {t('dest.createPlan')}
                 </Link>
               </div>
             </section>

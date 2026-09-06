@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Countdown from '../components/Countdown'
 import { api, type Trip } from '../lib'
+import { useLang } from '../lib/lang'
 
 export default function HomePage() {
+  const { t } = useLang()
   const [trips, setTrips] = useState<Trip[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -18,7 +20,7 @@ export default function HomePage() {
       })
       .catch((e: unknown) => {
         if (!active) return
-        setError(e instanceof Error ? e.message : '履歴の取得に失敗しました')
+        setError(e instanceof Error ? e.message : t('error.fetchHistory'))
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -26,7 +28,7 @@ export default function HomePage() {
     return () => {
       active = false
     }
-  }, [])
+  }, [t])
 
   const now = new Date()
   const upcoming = [...trips]
@@ -48,7 +50,7 @@ export default function HomePage() {
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
-      <h1 className="text-3xl font-bold text-slate-900">ホーム</h1>
+      <h1 className="text-3xl font-bold text-slate-900">{t('dash.title')}</h1>
 
       {error && (
         <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">
@@ -58,11 +60,13 @@ export default function HomePage() {
 
       <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         {loading ? (
-          <p className="text-slate-500">読み込み中...</p>
+          <p className="text-slate-500">{t('common.loading')}</p>
         ) : next ? (
           <div className="flex flex-wrap items-center justify-between gap-6">
             <div>
-              <p className="text-sm text-slate-500">次の旅行「{next.title}」まで</p>
+              <p className="text-sm text-slate-500">
+                {t('dash.nextTrip', { title: next.title })}
+              </p>
               <div className="mt-3">
                 <Countdown startDate={next.start_date} />
               </div>
@@ -74,28 +78,30 @@ export default function HomePage() {
               to="/history"
               className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
             >
-              プランを確認
+              {t('dash.viewPlan')}
             </Link>
           </div>
         ) : (
           <div className="text-center">
-            <p className="text-slate-600">予定している旅行はありません。</p>
+            <p className="text-slate-600">{t('dash.noUpcoming')}</p>
             <Link
               to="/plan"
               className="mt-4 inline-block rounded-lg bg-rose-600 px-6 py-3 font-medium text-white transition-colors hover:bg-rose-700"
             >
-              どこへ行きたいか分からない → レコメンド
+              {t('dash.ctaRecommend')}
             </Link>
           </div>
         )}
       </section>
 
       <section className="mt-8">
-        <h2 className="text-lg font-semibold text-slate-900">最近の履歴</h2>
+        <h2 className="text-lg font-semibold text-slate-900">
+          {t('dash.recentHistory')}
+        </h2>
         {loading ? (
-          <p className="mt-4 text-slate-500">読み込み中...</p>
+          <p className="mt-4 text-slate-500">{t('common.loading')}</p>
         ) : recent.length === 0 ? (
-          <p className="mt-4 text-slate-500">まだ履歴がありません。</p>
+          <p className="mt-4 text-slate-500">{t('dash.noHistory')}</p>
         ) : (
           <ul className="mt-4 divide-y divide-slate-200 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             {recent.map((trip) => (
@@ -110,7 +116,7 @@ export default function HomePage() {
                   to="/history"
                   className="text-sm font-medium text-rose-600 hover:text-rose-700"
                 >
-                  表示
+                  {t('dash.view')}
                 </Link>
               </li>
             ))}
@@ -120,7 +126,7 @@ export default function HomePage() {
 
       {!loading && past > 0 && (
         <p className="mt-6 text-sm text-slate-400">
-          合計 {trips.length} 件の履歴（完了 {past} 件）
+          {t('dash.totalHistory', { n: trips.length, m: past })}
         </p>
       )}
     </div>
