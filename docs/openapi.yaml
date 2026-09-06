@@ -282,6 +282,43 @@ components:
         image_url:
           type: string
           format: uri
+        cost_level_1:
+          type: integer
+        cost_level_2:
+          type: integer
+        cost_level_3:
+          type: integer
+        cost_level_4:
+          type: integer
+        attractions:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlaceInfo'
+        hotels:
+          type: array
+          items:
+            $ref: '#/components/schemas/PlaceInfo'
+    PlaceInfo:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        lat:
+          type: number
+        lng:
+          type: number
+        day:
+          type: integer
+        url:
+          type: string
+        booking_url:
+          type: string
+        phone:
+          type: string
+        address:
+          type: string
     Trip:
       type: object
       required:

@@ -17,6 +17,19 @@ Season = Literal["spring", "summer", "autumn", "winter"]
 AiProvider = Literal["rule", "openai"]
 
 
+class PlaceInfo(BaseModel):
+    """A single attraction or hotel with coordinates and contact links."""
+
+    name: str
+    lat: float | None = None
+    lng: float | None = None
+    day: int | None = None
+    url: str | None = None
+    booking_url: str | None = None
+    phone: str | None = None
+    address: str | None = None
+
+
 class Destination(BaseModel):
     """components.schemas.Destination."""
 
@@ -28,6 +41,12 @@ class Destination(BaseModel):
     best_season: Season | None = None
     tags: list[str] = Field(default_factory=list)
     image_url: str | None = None
+    cost_level_1: int | None = None
+    cost_level_2: int | None = None
+    cost_level_3: int | None = None
+    cost_level_4: int | None = None
+    attractions: list[PlaceInfo] = Field(default_factory=list)
+    hotels: list[PlaceInfo] = Field(default_factory=list)
 
 
 class Recommendation(BaseModel):

@@ -62,8 +62,8 @@ def test_budget_overage_kept_but_ranked_lower() -> None:
     assert "Lux" in by_name
     assert "Budget" in by_name
     assert by_name["Budget"]["score"] > by_name["Lux"]["score"]
-    assert any("Within budget" in r for r in by_name["Budget"]["reasons"])
-    assert any("exceeds budget" in r for r in by_name["Lux"]["reasons"])
+    assert any("予算内" in r for r in by_name["Budget"]["reasons"])
+    assert any("を超過" in r for r in by_name["Lux"]["reasons"])
 
 
 def test_budget_empty_keeps_all() -> None:
@@ -100,7 +100,7 @@ def test_small_budget_never_empty_keeps_cheapest() -> None:
     assert "Budget" in names
     assert "Pricey" in names
     all_reasons = [reason for r in results for reason in r["reasons"]]
-    assert any("exceeds budget" in reason for reason in all_reasons)
+    assert any("を超過" in reason for reason in all_reasons)
 
 
 def test_small_budget_cheapest_beats_expensive_ranking() -> None:
@@ -116,8 +116,8 @@ def test_small_budget_cheapest_beats_expensive_ranking() -> None:
 
     assert len(results) == 2  # nothing hard-excluded
     assert by_name["Cheap"]["score"] > by_name["Pricey"]["score"]
-    assert any("Within budget" in reason for reason in by_name["Cheap"]["reasons"])
-    assert any("exceeds budget" in reason for reason in by_name["Pricey"]["reasons"])
+    assert any("予算内" in reason for reason in by_name["Cheap"]["reasons"])
+    assert any("を超過" in reason for reason in by_name["Pricey"]["reasons"])
 
 
 def test_small_budget_all_over_cost_still_retains_cheapest_three() -> None:
@@ -142,7 +142,7 @@ def test_small_budget_all_over_cost_still_retains_cheapest_three() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Same-city weekend (city-walk / staycation)
+# Same-city weekend (市内散策 / staycation)
 # ---------------------------------------------------------------------------
 
 def test_weekend_same_city_recommended_any_season() -> None:
@@ -150,7 +150,7 @@ def test_weekend_same_city_recommended_any_season() -> None:
 
     Uses a Chinese-language origin (福冈) that maps to the romaji destination
     (Fukuoka, best season autumn) and a winter weekend – previously excluded by
-    the season hard filter, now restored by the city-walk exemption.
+    the season hard filter, now restored by the 市内散策 exemption.
     """
     fukuoka = _dest(
         id=1,
@@ -170,7 +170,7 @@ def test_weekend_same_city_recommended_any_season() -> None:
 
     assert len(results) == 1
     assert results[0]["destination"]["name"] == "Fukuoka"
-    assert any("city-walk" in r for r in results[0]["reasons"])
+    assert any("市内散策" in r for r in results[0]["reasons"])
 
 
 def test_cjk_origin_matches_romaji_destination() -> None:
@@ -180,11 +180,11 @@ def test_cjk_origin_matches_romaji_destination() -> None:
     for origin in ("Tokyo", "東京", "东京"):
         results = recommend([tokyo], _filters(origin=origin))
         assert len(results) == 1, f"origin {origin!r} should match Tokyo"
-        assert any("city-walk" in r for r in results[0]["reasons"])
+        assert any("市内散策" in r for r in results[0]["reasons"])
 
 
 def test_same_city_weekend_outranks_nearby_other() -> None:
-    """On a short trip the traveller's own city wins the city-walk boost."""
+    """On a short trip the traveller's own city wins the 市内散策 boost."""
     home = _dest(id=1, name="Fukuoka", country="Japan", region="East Asia", best_season="spring")
     other = _dest(id=2, name="Seoul", country="South Korea", region="East Asia", best_season="spring")
     # spring weekend in Fukuoka's season
@@ -194,7 +194,7 @@ def test_same_city_weekend_outranks_nearby_other() -> None:
     by_name = {r["destination"]["name"]: r for r in results}
 
     assert by_name["Fukuoka"]["score"] > by_name["Seoul"]["score"]
-    assert any("city-walk" in r for r in by_name["Fukuoka"]["reasons"])
+    assert any("市内散策" in r for r in by_name["Fukuoka"]["reasons"])
 
 
 # ---------------------------------------------------------------------------
@@ -222,14 +222,14 @@ def test_old_visit_not_excluded_but_deweighted() -> None:
 
     assert "OldTrip" in by_name  # not excluded
     assert by_name["OldTrip"]["score"] < by_name["Fresh"]["score"]
-    assert any("Previously visited" in r for r in by_name["OldTrip"]["reasons"])
+    assert any("訪問済み" in r for r in by_name["OldTrip"]["reasons"])
 
 
 def test_history_dedup_reason_present() -> None:
     visited = _dest(id=7, name="OldTrip", region="East Asia")
     history = [{"destination_id": 7, "end_date": "2025-01-01"}]
     results = recommend([visited], _filters(), history=history)
-    assert "Previously visited – lower priority" in results[0]["reasons"]
+    assert "訪問済み——優先度低" in results[0]["reasons"]
 
 
 # ---------------------------------------------------------------------------

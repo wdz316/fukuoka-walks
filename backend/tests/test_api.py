@@ -154,3 +154,34 @@ def test_preferences_roundtrip(client: TestClient) -> None:
 
     got = client.get("/api/preferences", headers={"X-Device-Id": "pref-dev"})
     assert got.json() == saved
+
+
+def test_destinations_carry_places_and_cost_levels(client: TestClient) -> None:
+    resp = client.get("/api/destinations")
+    assert resp.status_code == 200
+    data = resp.json()
+    kyoto = next(d for d in data if d["name"] == "Kyoto")
+    assert isinstance(kyoto["attractions"], list) and len(kyoto["attractions"]) >= 1
+    assert kyoto["attractions"][0]["name"]
+    assert isinstance(kyoto["cost_level_1"], int)
+
+
+def test_recommend_carries_places_cost_and_japanese_reasons(
+    client: TestClient,
+) -> None:
+    body = {
+        "start_date": "2026-09-05",
+        "end_date": "2026-09-06",
+        "origin": "福冈",
+    }
+    resp = client.post("/api/recommend", json=body)
+    assert resp.status_code == 200
+    data = resp.json()
+    assert len(data) > 0
+    assert data[0]["destination"]["name"] == "Fukuoka"
+    assert isinstance(data[0]["destination"]["attractions"], list)
+    assert any("予算" in (r or "") or "同都市" in (r or "") or "短期" in (r or "")
+               for item in data for r in [item["reason"]])
+    for item in data:
+        assert "Good fit" not in (item["reason"] or "")
+        assert "Novel" not in (item["reason"] or "")

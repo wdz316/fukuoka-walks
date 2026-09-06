@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countryLabel, regionLabel } from './i18n'
+import { countryLabel, regionLabel, seasonLabel } from './i18n'
 
 describe('countryLabel', () => {
   it('maps English country names to Japanese', () => {
@@ -42,5 +42,15 @@ describe('regionLabel', () => {
     expect(`${countryLabel('Japan')}・${regionLabel('East Asia')}`).toBe('日本・東アジア')
     expect(`${countryLabel('China')}・${regionLabel('East Asia')}`).toBe('中国・東アジア')
     expect(regionLabel('东亚')).toBe('東アジア')
+  })
+})
+
+describe('seasonLabel', () => {
+  it('maps season keys to Japanese (ベストシーズン：秋, not autumn)', () => {
+    expect(seasonLabel('spring')).toBe('春')
+    expect(seasonLabel('summer')).toBe('夏')
+    expect(seasonLabel('autumn')).toBe('秋')
+    expect(seasonLabel('winter')).toBe('冬')
+    expect(seasonLabel(null)).toBe('')
   })
 })

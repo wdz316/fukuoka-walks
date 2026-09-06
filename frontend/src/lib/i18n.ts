@@ -105,3 +105,18 @@ export function countryLabel(country: string | null | undefined): string {
 export function regionLabel(region: string | null | undefined): string {
   return REGION_JP[region ?? ""] ?? region ?? "";
 }
+
+const SEASON_JP: Record<string, string> = {
+  spring: "春",
+  summer: "夏",
+  autumn: "秋",
+  winter: "冬",
+  春: "春",
+  夏: "夏",
+  秋: "秋",
+  冬: "冬",
+};
+
+export function seasonLabel(season: string | null | undefined): string {
+  return SEASON_JP[season ?? ""] ?? season ?? "";
+}

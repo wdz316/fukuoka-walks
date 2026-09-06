@@ -21,7 +21,8 @@ import {
   type StayLength,
   type WalkType,
 } from '../lib/sameCity'
-import { countryLabel, regionLabel } from '../lib/i18n'
+import { countryLabel, regionLabel, seasonLabel } from '../lib/i18n'
+import { displayName } from '../lib/placeNames'
 import { buildRoute } from '../lib/routePlan'
 
 const HOLIDAY_TYPES: { value: HolidayType; label: string }[] = [
@@ -197,7 +198,7 @@ export default function PlanPage() {
     [form.origin, form.destination],
   )
 
-  async function runRecommend(req: RecommendRequest, summary: string) {
+  async function runRecommend(req: RecommendRequest, summary: string, pinQuery?: string) {
     setLoading(true)
     setError(null)
     setMessage(null)
@@ -212,9 +213,22 @@ export default function PlanPage() {
         setMessage(`「${summary}」に合う旅行先が見つかりませんでした。`)
         return
       }
-      setRecommendations(data)
-      setSelected(data[0])
-      setMessage(`「${summary}」のおすすめが ${data.length} 件見つかりました。`)
+      // Pin an explicitly requested destination to the top so the condition
+      // search honors the 目的地 field instead of burying it.
+      let ranked = data
+      if (pinQuery) {
+        const idx = data.findIndex((r) => destinationNameMatches(r.destination.name, pinQuery))
+        if (idx > 0) {
+          const [pinned] = data.splice(idx, 1)
+          pinned.reason = `指定の目的地：${pinned.reason ?? ''}`
+          ranked = [pinned, ...data]
+        } else if (idx === 0) {
+          data[0].reason = `指定の目的地：${data[0].reason ?? ''}`
+        }
+      }
+      setRecommendations(ranked)
+      setSelected(ranked[0])
+      setMessage(`「${summary}」のおすすめが ${ranked.length} 件見つかりました。`)
     } catch (e: unknown) {
       setRecommendations([])
       setError(e instanceof Error ? e.message : 'レコメンドに失敗しました')
@@ -287,7 +301,7 @@ export default function PlanPage() {
         parts.push('3日以上推奨')
       }
     }
-    void runRecommend(req, parts.join(' / '))
+    void runRecommend(req, parts.join(' / '), sameCity ? undefined : form.destination.trim() || undefined)
   }
 
   async function handleDirectSubmit(e: FormEvent) {
@@ -322,8 +336,8 @@ export default function PlanPage() {
       setPlanDates(plan)
       setMessage(
         plan.defaultsApplied
-          ? `「${match.name}」の詳細を表示しています。出発日が未指定のため、次の週末（${plan.start}〜${plan.end}）を仮定しました。`
-          : `「${match.name}」の詳細を表示しています。`,
+          ? `「${displayName(match.name)}」の詳細を表示しています。出発日が未指定のため、次の週末（${plan.start}〜${plan.end}）を仮定しました。`
+          : `「${displayName(match.name)}」の詳細を表示しています。`,
       )
     } catch (err: unknown) {
       setRecommendations([])
@@ -344,7 +358,7 @@ export default function PlanPage() {
         ? { start: form.startDate, end: form.endDate || form.startDate }
         : effectiveDirectDates(form))
       const trip: Trip = {
-        title: `${selected.destination.name} 旅行プラン`,
+        title: `${displayName(selected.destination.name)} 旅行プラン`,
         start_date: plan.start,
         end_date: plan.end,
         destination_id: selected.destination.id,
@@ -707,7 +721,7 @@ export default function PlanPage() {
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-slate-900">
-                          {rec.destination.name}
+                          {displayName(rec.destination.name)}
                         </span>
                         <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
                           適合 {Math.round(rec.score)}%
@@ -758,7 +772,7 @@ export default function PlanPage() {
                   <div className="p-5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <h3 className="text-xl font-bold text-slate-900">
-                        {selectedDest.name}
+                        {displayName(selectedDest.name)}
                       </h3>
                       <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
                         適合 {Math.round(selected!.score)}%
@@ -768,7 +782,7 @@ export default function PlanPage() {
                       {countryLabel(selectedDest.country)}・{regionLabel(selectedDest.region)}
                       {selectedDest.best_season && (
                         <span className="ml-2 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-                          ベストシーズン：{selectedDest.best_season}
+                          ベストシーズン：{seasonLabel(selectedDest.best_season)}
                         </span>
                       )}
                     </p>

@@ -301,7 +301,7 @@ def recommend(
         # ---- same-city / staycation boost ----
         if same_city and trip_cat == "short":
             reasons.append(
-                "Same-city city-walk / staycation – great for a short weekend"
+                "同都市の市内散策・ステイ——短い週末に最適"
             )
 
         # ---- scoring ----
@@ -319,45 +319,45 @@ def recommend(
                     score += pref.weight * 15
 
         if matched_interests:
-            reasons.append(f"Matches interests: {', '.join(matched_interests)}")
+            reasons.append(f"興味の一致：{', '.join(matched_interests)}")
 
         if f.interests:
             overlap = sorted(set(f.interests) & set(dest.tags))
             if overlap:
                 score += len(overlap) * 10
-                reasons.append(f"Matches filter interests: {', '.join(overlap)}")
+                reasons.append(f"条件の興味に一致：{', '.join(overlap)}")
 
         if same_city:
             score += 35
             if trip_cat != "short":
                 reasons.append(
-                    f"Same as origin ({f.origin}) – convenient staycation"
+                    f"出発地と同じ（{f.origin}）——便利なステイケーション"
                 )
         elif trip_cat == "short" and dest.region in _NEARBY_REGIONS:
             score += 10
-            reasons.append("Good fit for short trip (nearby)")
+            reasons.append("短期旅行に最適（近郊）")
         elif trip_cat == "long" and dest.region not in _NEARBY_REGIONS:
             score += 10
-            reasons.append("Good fit for longer trip")
+            reasons.append("長期旅行に最適")
 
         # ---- budget soft ranking ----
         if f.budget is not None:
             if over_budget:
                 score -= 25
                 reasons.append(
-                    f"Estimated cost ¥{estimated_total:,} exceeds budget "
-                    f"¥{f.budget:,.0f}"
+                    f"推定費用 ¥{estimated_total:,} は予算 "
+                    f"¥{f.budget:,.0f} を超過"
                 )
             else:
                 score += 8
-                reasons.append("Within budget")
+                reasons.append("予算内")
 
         if dest.id in visited_ids:
             score -= 30
-            reasons.append("Previously visited – lower priority")
+            reasons.append("訪問済み——優先度低")
         else:
             score += 5
-            reasons.append("Novel destination")
+            reasons.append("未訪問の新規開拓地")
 
         # Normalise into 0-100
         final_score = max(0.0, min(100.0, score))

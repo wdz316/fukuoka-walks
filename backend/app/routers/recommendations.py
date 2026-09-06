@@ -18,6 +18,7 @@ from app.db import get_db
 from app.engine import recommend as engine_recommend
 from app.models import Destination as DestDB, Preference as PrefDB, Trip
 from app.reco.holidays import available_days
+from app.routers.trips import _place_list, _seed_places
 from app.schemas import RecommendRequest, Recommendation
 
 router = APIRouter(prefix="/api/recommend", tags=["Recommendations"])
@@ -34,6 +35,14 @@ def _unscope_category(category: str) -> str:
 def _serialize_dest(db_row: DestDB) -> dict:
     tags_raw = db_row.tags
     tags = json.loads(tags_raw) if isinstance(tags_raw, str) else (tags_raw or [])
+    attractions = _place_list(db_row.attractions)
+    hotels = _place_list(db_row.hotels)
+    if (not attractions or not hotels) and db_row.name:
+        seed_row = _seed_places().get(db_row.name) or {}
+        if not attractions and isinstance(seed_row.get("attractions"), list):
+            attractions = _place_list(seed_row["attractions"])
+        if not hotels and isinstance(seed_row.get("hotels"), list):
+            hotels = _place_list(seed_row["hotels"])
     return {
         "id": db_row.id,
         "name": db_row.name,
@@ -46,6 +55,8 @@ def _serialize_dest(db_row: DestDB) -> dict:
         "cost_level_2": db_row.cost_level_2 or 0,
         "cost_level_3": db_row.cost_level_3 or 0,
         "cost_level_4": db_row.cost_level_4 or 0,
+        "attractions": attractions,
+        "hotels": hotels,
     }
 
 
@@ -83,6 +94,9 @@ def _build_recommendations(
 
     dest_rows = db.execute(select(DestDB)).scalars().all()
     destinations = [_serialize_dest(r) for r in dest_rows]
+    # Full catalogue indexed by id so recommendations can carry
+    # attractions/hotels/cost levels (the engine only scores on a subset).
+    catalogue = {d["id"]: d for d in destinations}
 
     scope = device_id or "default"
     trip_rows = (
@@ -111,6 +125,7 @@ def _build_recommendations(
     out: list[Recommendation] = []
     for r in raw_results:
         dest_data = r["destination"]
+        full = catalogue.get(dest_data["id"], {})
         out.append(
             Recommendation(
                 destination={
@@ -122,6 +137,12 @@ def _build_recommendations(
                     "best_season": dest_data.get("best_season"),
                     "tags": dest_data.get("tags", []),
                     "image_url": None,
+                    "cost_level_1": full.get("cost_level_1"),
+                    "cost_level_2": full.get("cost_level_2"),
+                    "cost_level_3": full.get("cost_level_3"),
+                    "cost_level_4": full.get("cost_level_4"),
+                    "attractions": full.get("attractions", []),
+                    "hotels": full.get("hotels", []),
                 },
                 score=r["score"],
                 reason=r.get("reasons", [None])[0] if r.get("reasons") else None,

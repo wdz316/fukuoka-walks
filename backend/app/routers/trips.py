@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
 from sqlalchemy import select
@@ -19,7 +20,7 @@ from app.schemas import Trip as TripSchema, TripIn
 router = APIRouter(prefix="/api/trips", tags=["Trips"])
 
 
-def _as_list(raw) -> list[dict]:
+def _as_list(raw) -> list:
     """Deserialize a JSON-string column (attractions/hotels) into a list."""
     if not raw:
         return []
@@ -34,12 +35,52 @@ def _as_list(raw) -> list[dict]:
     return []
 
 
+def _place_list(raw) -> list[dict]:
+    """Deserialize a JSON-string column into a list of named place dicts."""
+    items = _as_list(raw)
+    return [i for i in items if isinstance(i, dict) and i.get("name")]
+
+
+_SEED_PLACES: dict[str, dict] | None = None
+
+
+def _seed_places() -> dict[str, dict]:
+    """Load seed catalogue keyed by destination name (fallback source).
+
+    Lets trip export show attractions/hotels even when the DB row was
+    seeded before those fields existed. Loaded lazily and cached.
+    """
+    global _SEED_PLACES
+    if _SEED_PLACES is None:
+        _SEED_PLACES = {}
+        try:
+            data_dir = Path(__file__).resolve().parent.parent.parent / "data"
+            with (data_dir / "destinations.json").open(encoding="utf-8") as f:
+                rows = json.load(f)
+            _SEED_PLACES = {r["name"]: r for r in rows if r.get("name")}
+        except OSError:
+            _SEED_PLACES = {}
+    return _SEED_PLACES
+
+
 def _prepare_destination(destination: Destination | None) -> Destination | None:
-    """Normalize JSON-string columns so the exporter sees Python lists."""
+    """Normalize JSON-string columns so the exporter sees Python lists.
+
+    Falls back to the seed catalogue when the DB row has no
+    attractions/hotels (e.g. seeded before those fields were added).
+    """
     if destination is None:
         return None
-    destination.attractions = _as_list(destination.attractions)
-    destination.hotels = _as_list(destination.hotels)
+    attractions = _as_list(destination.attractions)
+    hotels = _as_list(destination.hotels)
+    if (not attractions or not hotels) and destination.name:
+        seed_row = _seed_places().get(destination.name) or {}
+        if not attractions and isinstance(seed_row.get("attractions"), list):
+            attractions = seed_row["attractions"]
+        if not hotels and isinstance(seed_row.get("hotels"), list):
+            hotels = seed_row["hotels"]
+    destination.attractions = attractions
+    destination.hotels = hotels
     return destination
 
 
