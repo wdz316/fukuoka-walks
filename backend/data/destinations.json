@@ -156,11 +156,11 @@
     "tags": ["city", "food", "culture", "nature"],
     "image_url": "https://example.com/images/fukuoka.jpg",
     "attractions": [
-      {"name": "櫛田神社", "lat": 33.5957, "lng": 130.4146, "day": 1, "url": "https://www.hakatakushida.com/", "booking_url": "", "phone": "092-291-2951", "address": "福岡市博多区上川端町1-41"},
-      {"name": "大濠公園", "lat": 33.5852, "lng": 130.3766, "day": 1, "url": "https://www.ohorikouen.jp/", "booking_url": "", "phone": "", "address": "福岡市中央区大濠公園1-2"},
-      {"name": "博多運河城", "lat": 33.5895, "lng": 130.4107, "day": 1, "url": "https://canalcity.co.jp/", "booking_url": "", "phone": "", "address": "福岡市博多区住吉1-2-1"},
-      {"name": "太宰府天満宮", "lat": 33.5315, "lng": 130.5357, "day": 2, "url": "https://www.dazaifutenmangu.or.jp/", "booking_url": "", "phone": "092-922-8225", "address": "太宰府市宰府4-7-1"},
-      {"name": "天神地下街", "lat": 33.5902, "lng": 130.3965, "day": 2, "url": "https://www.tenchika.com/", "booking_url": "", "phone": "", "address": "福岡市中央区天神2丁目"}
+  {"name": "櫛田神社", "lat": 33.5957, "lng": 130.4146, "day": 1, "url": "https://www.hakatakushida.com/", "booking_url": "", "phone": "092-291-2951", "address": "福岡市博多区上川端町1-41", "station": {"name": "祇園駅", "line": "地下鉄空港線"}},
+  {"name": "大濠公園", "lat": 33.5852, "lng": 130.3766, "day": 1, "url": "https://www.ohorikouen.jp/", "booking_url": "", "phone": "", "address": "福岡市中央区大濠公園1-2", "station": {"name": "大濠公園駅", "line": "地下鉄空港線"}},
+  {"name": "博多運河城", "lat": 33.5895, "lng": 130.4107, "day": 1, "url": "https://canalcity.co.jp/", "booking_url": "", "phone": "", "address": "福岡市博多区住吉1-2-1", "station": {"name": "祇園駅", "line": "地下鉄空港線"}},
+  {"name": "太宰府天満宮", "lat": 33.5315, "lng": 130.5357, "day": 2, "url": "https://www.dazaifutenmangu.or.jp/", "booking_url": "", "phone": "092-922-8225", "address": "太宰府市宰府4-7-1", "station": {"name": "太宰府駅", "line": "西鉄太宰府線"}},
+  {"name": "天神地下街", "lat": 33.5902, "lng": 130.3965, "day": 2, "url": "https://www.tenchika.com/", "booking_url": "", "phone": "", "address": "福岡市中央区天神2丁目", "station": {"name": "天神駅", "line": "地下鉄空港線"}}
     ],
     "hotels": [
       {"name": "ホテル日航福岡", "lat": 33.589, "lng": 130.412, "day": 1, "url": "https://www.hotelnikko-fukuoka.jp/", "booking_url": "https://www.booking.com/searchresults.ja.html?ss=Hotel+Nikko+Fukuoka", "phone": "", "address": "福岡市博多区博多駅前2-18-25"},

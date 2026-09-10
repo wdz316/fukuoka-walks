@@ -31,6 +31,30 @@ def _serialize_attractions_hotels(row: dict) -> tuple[str | None, str | None]:
     return attractions, hotels
 
 
+def _places_differ(stored: str | None, fresh: str | None) -> bool:
+    """True when the seed JSON adds anything the DB row lacks."""
+    if not fresh:
+        return False
+    if not stored:
+        return True
+    try:
+        old = json.loads(stored)
+        new = json.loads(fresh)
+    except json.JSONDecodeError:
+        return True
+    if not isinstance(old, list) or not isinstance(new, list):
+        return old != new
+    old_names = {p.get("name") for p in old if isinstance(p, dict)}
+    if any(p.get("name") not in old_names for p in new if isinstance(p, dict)):
+        return True
+    old_by_name = {p.get("name"): p for p in old if isinstance(p, dict)}
+    return any(
+        p != old_by_name.get(p.get("name"))
+        for p in new
+        if isinstance(p, dict)
+    )
+
+
 def seed_destinations(db: Session) -> int:
     rows = _load_json("destinations.json")
     created = 0
@@ -40,13 +64,14 @@ def seed_destinations(db: Session) -> int:
         )
         attractions_json, hotels_json = _serialize_attractions_hotels(row)
         if exists is not None:
-            # Backfill attractions/hotels added to the seed data after the
-            # row was first created (e.g. Fukuoka). Never overwrites data.
+            # Backfill/refresh attractions/hotels when the seed catalogue
+            # gains spots or fields (e.g. station info). Seed data is the
+            # source of truth for these columns.
             updated = False
-            if not exists.attractions and attractions_json:
+            if _places_differ(exists.attractions, attractions_json):
                 exists.attractions = attractions_json
                 updated = True
-            if not exists.hotels and hotels_json:
+            if _places_differ(exists.hotels, hotels_json):
                 exists.hotels = hotels_json
                 updated = True
             if updated:

@@ -50,6 +50,8 @@ export interface RouteLeg {
   /** 'walk' under 1.2km, otherwise transit. */
   mode: "walk" | "transit";
   minutes: number;
+  /** Concrete line, e.g. 地下鉄空港線（祇園駅→大濠公園駅）, when both ends share one. */
+  line?: string;
 }
 
 function haversineKm(
@@ -73,19 +75,32 @@ function haversineKm(
 /**
  * Order + transport for each leg between consecutive route points.
  * Walk (<1.2km, 4km/h) else transit (15km/h + 5min wait), minutes rounded up.
+ * When both ends share a station line, the leg names it explicitly.
  */
 export function planLegs(
-  points: readonly { name: string; lat: number; lng: number }[],
+  points: readonly {
+    name: string;
+    lat: number;
+    lng: number;
+    station?: { name: string; line: string } | null;
+  }[],
 ): RouteLeg[] {
   const legs: RouteLeg[] = [];
   for (let i = 0; i + 1 < points.length; i++) {
     const km = haversineKm(points[i], points[i + 1]);
+    const a = points[i].station;
+    const b = points[i + 1].station;
+    const line =
+      a && b && a.line === b.line
+        ? `${a.line}（${a.name}→${b.name}）`
+        : undefined;
     if (km < 1.2) {
       legs.push({
         from: points[i].name,
         to: points[i + 1].name,
         mode: "walk",
         minutes: Math.max(1, Math.ceil((km / 4) * 60)),
+        line,
       });
     } else {
       legs.push({
@@ -93,6 +108,7 @@ export function planLegs(
         to: points[i + 1].name,
         mode: "transit",
         minutes: Math.ceil((km / 15) * 60) + 5,
+        line,
       });
     }
   }

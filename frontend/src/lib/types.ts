@@ -12,6 +12,7 @@ export interface PlaceInfo {
   booking_url?: string;
   phone?: string;
   address?: string;
+  station?: { name: string; line: string };
 }
 
 export interface Destination {

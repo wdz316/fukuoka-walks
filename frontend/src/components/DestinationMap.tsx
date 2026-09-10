@@ -48,6 +48,7 @@ export interface MapPoint {
   visited?: boolean
   /** False = tapped off the route (hollow marker, not connected). */
   included?: boolean
+  station?: { name: string; line: string }
 }
 
 interface DestinationMapProps {
@@ -120,8 +121,10 @@ export default function DestinationMap({ name, points = [], onTogglePoint, onMov
 const WALK_COLOR = '#16a34a'
 const TRANSIT_COLOR = '#2563eb'
 
-function legDetail(t: (key: string, params?: Record<string, string | number>) => string, leg: { mode: string; minutes: number }): string {
-  return `${t(leg.mode === 'walk' ? 'plan.walkMode' : 'plan.transitMode')} ${t('plan.minutes', { n: leg.minutes })}`
+function legDetail(t: (key: string, params?: Record<string, string | number>) => string, leg: { mode: string; minutes: number; line?: string }): string {
+  const mins = t('plan.minutes', { n: leg.minutes })
+  if (leg.line) return `${leg.line}・${mins}`
+  return `${t(leg.mode === 'walk' ? 'plan.walkMode' : 'plan.transitMode')} ${mins}`
 }
 
   return (

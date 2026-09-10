@@ -219,6 +219,19 @@ def test_render_map_popup_contains_official_website_link():
     assert "https://www.shokoku-ji.jp/kinkaku/" in html
 
 
+def test_render_shows_station_info_in_popup_and_timeline():
+    dest = _Destination(
+        attractions=[
+            {"name": "櫛田神社", "lat": 33.5957, "lng": 130.4146, "day": 1,
+             "station": {"name": "祇園駅", "line": "地下鉄空港線"}},
+        ],
+    )
+    trip = _Trip(start_date=date(2026, 9, 6), end_date=date(2026, 9, 6))
+    html = render_trip_html(trip, dest)
+    assert "祇園駅" in html
+    assert "地下鉄空港線" in html
+
+
 def test_render_map_single_point_no_polyline():
     dest = _Destination(
         attractions=[{"name": "Tokyo Tower", "lat": 35.6586, "lng": 139.7454, "day": 1}],

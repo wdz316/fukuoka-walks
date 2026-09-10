@@ -414,6 +414,20 @@ components:
           type: string
         address:
           type: string
+        station:
+          $ref: '#/components/schemas/StationInfo'
+    StationInfo:
+      type: object
+      required:
+        - name
+        - line
+      properties:
+        name:
+          type: string
+          description: Nearest station name
+        line:
+          type: string
+          description: Railway/bus line name
     Trip:
       type: object
       required:

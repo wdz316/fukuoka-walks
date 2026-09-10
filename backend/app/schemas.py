@@ -17,6 +17,13 @@ Season = Literal["spring", "summer", "autumn", "winter"]
 AiProvider = Literal["rule", "openai"]
 
 
+class StationInfo(BaseModel):
+    """Nearest station for a transit leg (e.g. 祇園駅 on 地下鉄空港線)."""
+
+    name: str
+    line: str
+
+
 class PlaceInfo(BaseModel):
     """A single attraction or hotel with coordinates and contact links."""
 
@@ -28,6 +35,7 @@ class PlaceInfo(BaseModel):
     booking_url: str | None = None
     phone: str | None = None
     address: str | None = None
+    station: StationInfo | None = None
 
 
 class Destination(BaseModel):

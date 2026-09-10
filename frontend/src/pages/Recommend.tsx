@@ -333,12 +333,14 @@ export default function PlanPage() {
   )
   const mapPoints: MapPoint[] = useMemo(() => {
     if (!selectedDest) return []
-    // Coordinate lookup from catalogue data (+ dragged overrides).
+    // Coordinate + station lookup from catalogue data (+ dragged overrides).
     const coords = new Map<string, { lat: number; lng: number }>()
+    const stations = new Map<string, { name: string; line: string }>()
     for (const p of [...(selectedDest.attractions ?? []), ...(selectedDest.hotels ?? [])]) {
       if (typeof p.lat === 'number' && typeof p.lng === 'number') {
         coords.set(p.name, { lat: p.lat, lng: p.lng })
       }
+      if (p.station) stations.set(p.name, p.station)
     }
     for (const [name, ll] of Object.entries(coordOverrides)) coords.set(name, ll)
     // Route order (days, then extras), excluded stops kept as hollow markers.
@@ -356,6 +358,7 @@ export default function PlanPage() {
           lng: c.lng,
           visited: visitedNames.has(s.name),
           included: !excludedStops.includes(s.name),
+          station: stations.get(s.name),
         })
       }
     }

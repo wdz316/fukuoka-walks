@@ -121,4 +121,18 @@ describe('planLegs', () => {
     expect(planLegs([])).toEqual([])
     expect(planLegs([a])).toEqual([])
   })
+
+  it('names the concrete line when both ends share one', () => {
+    const gion = { ...a, station: { name: '祇園駅', line: '地下鉄空港線' } }
+    const ohori = { ...near, station: { name: '大濠公園駅', line: '地下鉄空港線' } }
+    const [leg] = planLegs([gion, ohori])
+    expect(leg.line).toBe('地下鉄空港線（祇園駅→大濠公園駅）')
+  })
+
+  it('leaves line undefined across different lines or missing stations', () => {
+    const dazaifu = { ...far, station: { name: '太宰府駅', line: '西鉄太宰府線' } }
+    const gion = { ...a, station: { name: '祇園駅', line: '地下鉄空港線' } }
+    expect(planLegs([gion, dazaifu])[0].line).toBeUndefined()
+    expect(planLegs([a, near])[0].line).toBeUndefined()
+  })
 })

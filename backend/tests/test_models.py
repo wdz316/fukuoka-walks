@@ -93,6 +93,26 @@ def test_fukuoka_seed_has_attractions_with_coords_and_links() -> None:
     assert len(fukuoka["hotels"]) >= 1
 
 
+def test_seed_refreshes_station_info_on_existing_rows() -> None:
+    db = _session()
+    try:
+        seed_destinations(db)
+        fukuoka = db.scalar(select(Destination).where(Destination.name == "Fukuoka"))
+        assert fukuoka is not None
+        # Simulate an old row seeded before station info existed.
+        spots = json.loads(fukuoka.attractions)
+        for s in spots:
+            s.pop("station", None)
+        fukuoka.attractions = json.dumps(spots, ensure_ascii=False)
+        db.commit()
+        refreshed = seed_destinations(db)
+        db.refresh(fukuoka)
+        assert refreshed >= 1
+        assert all("station" in a for a in json.loads(fukuoka.attractions))
+    finally:
+        db.close()
+
+
 def test_trip_roundtrip_with_destination() -> None:
     db = _session()
     try:

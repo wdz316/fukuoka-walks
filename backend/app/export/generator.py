@@ -109,6 +109,9 @@ def _timeline_day_detail(day_num: int, attractions: list, hotels: list) -> str:
             detail_rows = ""
             if address:
                 detail_rows += '<div class="detail-row"><span class="detail-icon">📍</span><span class="detail-text">%s</span></div>' % _esc(address)
+            station = a.get("station") or {}
+            if isinstance(station, dict) and station.get("name"):
+                detail_rows += '<div class="detail-row"><span class="detail-icon">🚇</span><span class="detail-text">%s（%s）</span></div>' % (_esc(station.get("name")), _esc(station.get("line")))
             if phone:
                 detail_rows += '<div class="detail-row"><span class="detail-icon">📞</span><span class="detail-text"><a href="tel:%s">%s</a></span></div>' % (_esc(phone), _esc(phone))
             btns = ""
@@ -227,6 +230,7 @@ def _map_section(destination) -> str:
                 "type": "attraction", "day": a.get("day"),
                 "url": a.get("url"), "phone": a.get("phone"),
                 "address": a.get("address"), "booking_url": a.get("booking_url"),
+                "station": a.get("station"),
             }
             pt["popupHtml"] = _popup_html(pt)
             all_points.append(pt)
@@ -236,6 +240,7 @@ def _map_section(destination) -> str:
                 "type": "hotel", "day": h.get("day"),
                 "url": h.get("url"), "phone": h.get("phone"),
                 "address": h.get("address"), "booking_url": h.get("booking_url"),
+                "station": h.get("station"),
             }
             pt["popupHtml"] = _popup_html(pt)
             all_points.append(pt)
@@ -335,6 +340,12 @@ def _popup_html(p: dict) -> str:
         parts.append(
             '<br><span style="color:#6b7280;font-size:.8em">📍 %s</span>'
             % _esc(p.get("address"))
+        )
+    station = p.get("station") or {}
+    if isinstance(station, dict) and station.get("name"):
+        parts.append(
+            '<br><span style="color:#374151;font-size:.85em">🚇 %s（%s）</span>'
+            % (_esc(station.get("name")), _esc(station.get("line")))
         )
     parts.append("</div>")
     return "".join(parts)
@@ -450,6 +461,7 @@ def render_trip_html(trip, destination=None, next_trip=None) -> str:
                 "type": "attraction", "day": a.get("day"),
                 "url": a.get("url"), "phone": a.get("phone"),
                 "address": a.get("address"), "booking_url": a.get("booking_url"),
+                "station": a.get("station"),
             }
             pt["popupHtml"] = _popup_html(pt)
             all_points.append(pt)
@@ -459,6 +471,7 @@ def render_trip_html(trip, destination=None, next_trip=None) -> str:
                 "type": "hotel", "day": h.get("day"),
                 "url": h.get("url"), "phone": h.get("phone"),
                 "address": h.get("address"), "booking_url": h.get("booking_url"),
+                "station": h.get("station"),
             }
             pt["popupHtml"] = _popup_html(pt)
             all_points.append(pt)
