@@ -76,3 +76,37 @@ export function destinationNameMatches(destName: string, input: string): boolean
   const dc = canonicalCityAlias(destName);
   return qc != null && dc != null && qc === dc;
 }
+
+export type VisitFilter = "any" | "new";
+
+/**
+ * Collect visited destination ids from trip history and visit records.
+ * Trips carry destination_id; visits may only carry an attraction name.
+ */
+export function collectVisitedDestinationIds(
+  trips: readonly { destination_id?: number }[],
+  visits: readonly { destination_id?: number }[],
+): Set<number> {
+  const ids = new Set<number>();
+  for (const t of trips) {
+    if (typeof t.destination_id === "number") ids.add(t.destination_id);
+  }
+  for (const v of visits) {
+    if (typeof v.destination_id === "number") ids.add(v.destination_id);
+  }
+  return ids;
+}
+
+/**
+ * Keep only unvisited destinations when the user picks "new places only".
+ * Matching is by destination id; entries without an id are always kept.
+ */
+export function filterNewDestinations<T extends { destination: { id?: number } }>(
+  recs: readonly T[],
+  visitedIds: ReadonlySet<number>,
+): T[] {
+  return recs.filter((r) => {
+    const id = r.destination.id;
+    return typeof id !== "number" || !visitedIds.has(id);
+  });
+}

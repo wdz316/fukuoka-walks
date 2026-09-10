@@ -133,6 +133,11 @@ const zh: Dict = {
   'visit.addToRoute': '加入路线',
   'visit.customAdded': '已将「{name}」加入路线',
   'visit.emptyCustom': '请输入地点名。',
+  'visit.routeExcluded': '路线除外',
+  'plan.visitFilter': '去过的地方',
+  'plan.visitAny': '都可以',
+  'plan.visitNewOnly': '只去新的',
+  'plan.mapHint': '点标记加入/移出路线，拖动可调位置',
 
   // Recommend — messages
   'plan.msgNoMatch': '未找到符合「{summary}」的旅行目的地。',
@@ -309,6 +314,11 @@ const ja: Dict = {
   'visit.addToRoute': 'ルートに追加',
   'visit.customAdded': '「{name}」をルートに追加しました',
   'visit.emptyCustom': 'スポット名を入力してください。',
+  'visit.routeExcluded': 'ルート除外',
+  'plan.visitFilter': '行った場所',
+  'plan.visitAny': 'どちらも',
+  'plan.visitNewOnly': '新規のみ',
+  'plan.mapHint': 'マーカーをタップでルート出入り、ドラッグで位置調整',
 
   // Recommend — messages
   'plan.msgNoMatch': '「{summary}」に合う旅行先が見つかりませんでした。',

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   canonicalCityAlias,
+  collectVisitedDestinationIds,
   destinationNameMatches,
+  filterNewDestinations,
   isSameCity,
   normalizeCity,
 } from './places'
@@ -68,5 +70,29 @@ describe('destinationNameMatches', () => {
   it('rejects unrelated names', () => {
     expect(destinationNameMatches('Osaka', 'Fukuoka')).toBe(false)
     expect(destinationNameMatches('Kyoto', '')).toBe(false)
+  })
+})
+
+describe('collectVisitedDestinationIds', () => {
+  it('merges trip and visit destination ids, skipping missing ones', () => {
+    const ids = collectVisitedDestinationIds(
+      [{ destination_id: 1 }, {}, { destination_id: 2 }],
+      [{ destination_id: 2 }, { destination_id: 3 }, {}],
+    )
+    expect([...ids].sort((a, b) => a - b)).toEqual([1, 2, 3])
+  })
+})
+
+describe('filterNewDestinations', () => {
+  const recs = [
+    { destination: { id: 1, name: 'A' } },
+    { destination: { id: 2, name: 'B' } },
+    { destination: { id: 3, name: 'C' } },
+  ]
+  it('drops visited ids and keeps the rest in order', () => {
+    expect(filterNewDestinations(recs, new Set([1, 3])).map((r) => r.destination.id)).toEqual([2])
+  })
+  it('keeps everything when nothing visited', () => {
+    expect(filterNewDestinations(recs, new Set())).toHaveLength(3)
   })
 })

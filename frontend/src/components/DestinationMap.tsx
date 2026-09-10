@@ -1,4 +1,4 @@
-import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
+import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { useEffect } from 'react'
@@ -22,7 +22,16 @@ const icon = L.icon({
 const VISITED_COLOR = '#d97706'
 const NOT_VISITED_COLOR = '#94a3b8'
 
-function pointIcon(visited: boolean): L.DivIcon {
+function pointIcon(visited: boolean, included = true): L.DivIcon {
+  if (!included) {
+    return L.divIcon({
+      className: '',
+      html: `<div style="width:16px;height:16px;border-radius:50%;background:#fff;border:2px dashed ${NOT_VISITED_COLOR};box-shadow:0 1px 3px rgba(0,0,0,0.35)"></div>`,
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+      popupAnchor: [0, -10],
+    })
+  }
   return L.divIcon({
     className: '',
     html: `<div style="width:16px;height:16px;border-radius:50%;background:${visited ? VISITED_COLOR : NOT_VISITED_COLOR};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.35)"></div>`,
@@ -46,18 +55,32 @@ export interface MapPoint {
   lat: number
   lng: number
   visited?: boolean
+  /** False = tapped off the route (hollow marker, not connected). */
+  included?: boolean
 }
 
 interface DestinationMapProps {
   name: string
   points?: MapPoint[]
+  /** Tap a marker to toggle it in/out of the route. Enables edit mode. */
+  onTogglePoint?: (name: string) => void
+  /** Drag a marker to adjust its position on the route. */
+  onMovePoint?: (name: string, lat: number, lng: number) => void
 }
 
-export default function DestinationMap({ name, points = [] }: DestinationMapProps) {
+function isInteractive(props: Pick<DestinationMapProps, 'onTogglePoint' | 'onMovePoint'>): boolean {
+  return props.onTogglePoint != null || props.onMovePoint != null
+}
+
+export default function DestinationMap({ name, points = [], onTogglePoint, onMovePoint }: DestinationMapProps) {
   const { t } = useLang()
   const pos = coordinateFor(name)
   if (!pos) return null
   const center: LatLng = { lat: pos.lat, lng: pos.lng }
+  const interactive = isInteractive({ onTogglePoint, onMovePoint })
+  const routeLine: [number, number][] = points
+    .filter((p) => p.included !== false)
+    .map((p) => [p.lat, p.lng])
 
   return (
     <div className="relative h-full w-full" style={{ minHeight: 300 }}>
@@ -75,15 +98,39 @@ export default function DestinationMap({ name, points = [] }: DestinationMapProp
         <Marker position={[center.lat, center.lng]} icon={icon}>
           <Popup>{name}</Popup>
         </Marker>
-        {points.map((p) => (
-          <Marker key={p.name} position={[p.lat, p.lng]} icon={pointIcon(p.visited ?? false)}>
-            <Popup>
-              {p.name}
-              <br />
-              {p.visited ? t('visit.visited') : t('visit.notVisited')}
-            </Popup>
-          </Marker>
-        ))}
+        {routeLine.length > 1 && (
+          <Polyline positions={routeLine} pathOptions={{ color: '#2563eb', weight: 3, dashArray: '8,6' }} />
+        )}
+        {points.map((p) => {
+          const included = p.included !== false
+          return (
+            <Marker
+              key={p.name}
+              position={[p.lat, p.lng]}
+              icon={pointIcon(p.visited ?? false, included)}
+              draggable={interactive}
+              eventHandlers={{
+                click: () => onTogglePoint?.(p.name),
+                dragend: (e) => {
+                  const ll = (e.target as L.Marker).getLatLng()
+                  onMovePoint?.(p.name, ll.lat, ll.lng)
+                },
+              }}
+            >
+              <Popup>
+                {p.name}
+                <br />
+                {p.visited ? t('visit.visited') : t('visit.notVisited')}
+                {!included && (
+                  <>
+                    <br />
+                    {t('visit.routeExcluded')}
+                  </>
+                )}
+              </Popup>
+            </Marker>
+          )
+        })}
       </MapContainer>
       {points.length > 0 && (
         <div className="absolute bottom-3 left-3 z-[1000] rounded-md bg-white/95 px-3 py-2 text-xs text-slate-700 shadow-md">
@@ -95,6 +142,20 @@ export default function DestinationMap({ name, points = [] }: DestinationMapProp
             <span className="inline-block h-3 w-3 rounded-full" style={{ background: NOT_VISITED_COLOR }} />
             <span>{t('visit.notVisited')}</span>
           </div>
+          {interactive && (
+            <div className="mt-1 flex items-center gap-2">
+              <span
+                className="inline-block h-3 w-3 rounded-full bg-white"
+                style={{ border: `2px dashed ${NOT_VISITED_COLOR}` }}
+              />
+              <span>{t('visit.routeExcluded')}</span>
+            </div>
+          )}
+        </div>
+      )}
+      {interactive && (
+        <div className="absolute left-3 top-3 z-[1000] max-w-[70%] rounded-md bg-slate-900/80 px-3 py-1.5 text-xs text-white shadow-md">
+          {t('plan.mapHint')}
         </div>
       )}
     </div>

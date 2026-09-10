@@ -4,13 +4,12 @@ import DestinationMap, { type MapPoint } from '../components/DestinationMap'
 import {
   api,
   type Destination,
-  type HolidayType,
   type Recommendation,
   type RecommendRequest,
   type Trip,
   type Visit,
 } from '../lib'
-import { destinationNameMatches, isSameCity } from '../lib/places'
+import { collectVisitedDestinationIds, destinationNameMatches, filterNewDestinations, isSameCity, type VisitFilter } from '../lib/places'
 import {
   SAME_CITY_PREF_OPTIONS,
   STAY_LENGTHS,
@@ -27,43 +26,11 @@ import { displayName } from '../lib/placeNames'
 import { buildRoute, mergeCustomPlaces, type CustomPlace } from '../lib/routePlan'
 import { useLang } from '../lib/lang'
 
-const HOLIDAY_TYPES: { value: HolidayType; label: string }[] = [
-  { value: 'weekend', label: 'holiday.weekend' },
-  { value: 'three_day', label: 'holiday.threeDay' },
-  { value: 'obon', label: 'holiday.obon' },
-  { value: 'golden_week', label: 'holiday.goldenWeek' },
-  { value: 'custom', label: 'holiday.custom' },
-]
-
-type TripScope = 'near' | 'far'
-
-const SCOPE_OPTIONS: { value: TripScope; label: string; hint: string }[] = [
-  { value: 'near', label: 'scope.near', hint: 'scope.nearHint' },
-  { value: 'far', label: 'scope.far', hint: 'scope.farHint' },
-]
-
-const HOT_DESTINATIONS = ['京都', '大阪', '福岡', '東京', '札幌']
-const NEARBY_REGIONS = [
-  { value: 'East Asia', label: '東アジア' },
-  { value: 'Southeast Asia', label: '東南アジア' },
-]
-const THEME_INTERESTS = [
-  { label: 'theme.food', value: 'food' },
-  { label: 'theme.nature', value: 'nature' },
-  { label: 'theme.culture', value: 'culture' },
-  { label: 'theme.shopping', value: 'shopping' },
-]
-
 interface FormState {
   startDate: string
   endDate: string
-  holidayType: HolidayType
-  budget: string
   origin: string
   destination: string
-  interests: string
-  region: string
-  scope: TripScope
   directDestination: string
   directDate: string
   walkType: WalkType
@@ -74,13 +41,8 @@ interface FormState {
 const emptyForm: FormState = {
   startDate: '',
   endDate: '',
-  holidayType: 'custom',
-  budget: '',
   origin: '',
   destination: '',
-  interests: '',
-  region: '',
-  scope: 'near',
   directDestination: '',
   directDate: '',
   walkType: 'city',
@@ -195,9 +157,49 @@ export default function PlanPage() {
   const [customNote, setCustomNote] = useState('')
   const [checkingIn, setCheckingIn] = useState(false)
   const [visitError, setVisitError] = useState<string | null>(null)
+  // 去过选项 + 地图调线状态
+  const [visitFilter, setVisitFilter] = useState<VisitFilter>('any')
+  const [pastTrips, setPastTrips] = useState<Trip[]>([])
+  const [excludedStops, setExcludedStops] = useState<string[]>([])
+  const [coordOverrides, setCoordOverrides] = useState<Record<string, { lat: number; lng: number }>>({})
 
   useEffect(() => {
     let cancelled = false
+    api
+      .getTrips()
+      .then((list) => {
+        if (!cancelled) setPastTrips(list)
+      })
+      .catch(() => {
+        if (!cancelled) setPastTrips([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const visitedDestIds = useMemo(
+    () => collectVisitedDestinationIds(pastTrips, visits),
+    [pastTrips, visits],
+  )
+
+  function toggleStopExcluded(name: string) {
+    setExcludedStops((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
+    )
+  }
+
+  function moveStop(name: string, lat: number, lng: number) {
+    setCoordOverrides((prev) => ({ ...prev, [name]: { lat, lng } }))
+  }
+
+  // Switching destinations resets map edits (exclusions + dragged pins)
+  // alongside the visits refresh below.
+  const selectedDestId = selected?.destination.id
+  useEffect(() => {
+    let cancelled = false
+    setExcludedStops([])
+    setCoordOverrides({})
     api
       .getVisits()
       .then((list) => {
@@ -209,7 +211,8 @@ export default function PlanPage() {
     return () => {
       cancelled = true
     }
-  }, [selected?.destination.id])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDestId])
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -276,6 +279,17 @@ export default function PlanPage() {
           data[0].reason = `${t('plan.pinnedPrefix')}${data[0].reason ?? ''}`
         }
       }
+      // 只去新的：drop already-visited destinations (pinned one always stays).
+      if (visitFilter === 'new') {
+        const pinned = pinQuery
+          ? ranked.filter((r) => destinationNameMatches(r.destination.name, pinQuery))
+          : []
+        const rest = filterNewDestinations(
+          ranked.filter((r) => !pinned.includes(r)),
+          visitedDestIds,
+        )
+        ranked = [...pinned, ...rest]
+      }
       setRecommendations(ranked)
       setSelected(ranked[0])
       setMessage(t('plan.msgFound', { summary, n: ranked.length }))
@@ -288,35 +302,10 @@ export default function PlanPage() {
   }
 
   function buildRequest(): RecommendRequest {
-    const interests = form.interests
-      .split(/[,、\s]+/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-    const budget = form.budget ? Number(form.budget) : undefined
     return {
       start_date: form.startDate,
       end_date: form.endDate,
-      holiday_type: form.holidayType,
-      origin: form.origin || undefined,
-      budget: budget && budget > 0 ? budget : undefined,
-      interests: interests.length ? interests : undefined,
-      // 長途 ignores the region limit so long-haul destinations are included;
-      // 近郊 keeps the user's region (short trips already bias nearby).
-      region: form.scope === 'far' ? undefined : form.region || undefined,
     }
-  }
-
-  function toggleThemeInterest(value: string) {
-    setForm((prev) => {
-      const cur = prev.interests
-        .split(/[,、\s]+/)
-        .map((s) => s.trim())
-        .filter(Boolean)
-      const next = cur.includes(value)
-        ? cur.filter((v) => v !== value)
-        : [...cur, value]
-      return { ...prev, interests: next.join(', ') }
-    })
   }
 
   async function runSameCitySearch() {
@@ -344,13 +333,8 @@ export default function PlanPage() {
       return
     }
     const req = buildRequest()
-    const scopeLabel = t(form.scope === 'far' ? 'scope.far' : 'scope.near')
-    const parts = [form.startDate, form.endDate, scopeLabel, form.holidayType].filter(Boolean)
-    if (form.scope === 'far' && form.startDate && form.endDate) {
-      if (dayCount(form.startDate, form.endDate) < 3) {
-        parts.push(t('plan.recommend3plus'))
-      }
-    }
+    const visitNote = visitFilter === 'new' ? t('plan.visitNewOnly') : t('plan.visitAny')
+    const parts = [form.startDate, form.endDate, visitNote].filter(Boolean)
     void runRecommend(req, parts.join(' / '), cityMode ? undefined : form.destination.trim() || undefined)
   }
 
@@ -450,7 +434,7 @@ export default function PlanPage() {
 
   async function handleComplete() {
     if (!savedTrip?.id) return
-    const names = mergedRoute
+    const names = effectiveRoute
       .flatMap((d) => d.stops.map((s) => s.name))
       .filter((n, i, arr) => arr.indexOf(n) === i)
     setCheckingIn(true)
@@ -485,6 +469,14 @@ export default function PlanPage() {
       })
     : []
   const mergedRoute = mergeCustomPlaces(route, customPlaces)
+  // Map edits: excluded stops leave the route, dragged pins move it.
+  const effectiveRoute = mergedRoute
+    .map((d) => ({
+      ...d,
+      stops: d.stops.filter((s) => !excludedStops.includes(s.name)),
+      extras: d.extras.filter((s) => !excludedStops.includes(s.name)),
+    }))
+    .filter((d) => d.stops.length > 0 || d.extras.length > 0)
   const visitedNames = useMemo(
     () => new Set(visits.map((v) => v.attraction_name)),
     [visits],
@@ -494,13 +486,17 @@ export default function PlanPage() {
     const spots = [...(selectedDest.attractions ?? []), ...(selectedDest.hotels ?? [])]
     return spots
       .filter((p) => typeof p.lat === 'number' && typeof p.lng === 'number')
-      .map((p) => ({
-        name: p.name,
-        lat: p.lat as number,
-        lng: p.lng as number,
-        visited: visitedNames.has(p.name),
-      }))
-  }, [selectedDest, visitedNames])
+      .map((p) => {
+        const override = coordOverrides[p.name]
+        return {
+          name: p.name,
+          lat: override?.lat ?? (p.lat as number),
+          lng: override?.lng ?? (p.lng as number),
+          visited: visitedNames.has(p.name),
+          included: !excludedStops.includes(p.name),
+        }
+      })
+  }, [selectedDest, visitedNames, excludedStops, coordOverrides])
   const tripCompleted = savedTrip?.status === 'completed'
 
   return (
@@ -646,41 +642,34 @@ export default function PlanPage() {
               </>
             ) : (
               <>
-                <div>
-                  <span className="text-sm text-slate-600">
-                    {t('plan.tripScope')} <span className="ml-1 text-xs text-slate-400">{t('plan.freeTravel')}</span>
-                  </span>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {SCOPE_OPTIONS.map((s) => (
-                      <Chip
-                        key={s.value}
-                        active={form.scope === s.value}
-                        onClick={() => update('scope', s.value)}
-                      >
-                        {t(s.label)}
-                      </Chip>
-                    ))}
-                  </div>
-                  <p className="mt-1 text-xs text-slate-400">
-                    {t(SCOPE_OPTIONS.find((s) => s.value === form.scope)?.hint ?? '')}
-                    {form.scope === 'far' ? t('plan.regionUnlimited') : ''}
-                  </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <label className="block text-sm">
+                    <span className="text-slate-600">{t('plan.destination')}</span>
+                    <input
+                      type="text"
+                      value={form.destination}
+                      onChange={(e) => updatePlace('destination', e.target.value)}
+                      placeholder="例: 福岡"
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                    />
+                  </label>
                 </div>
 
                 <div>
-                  <span className="text-sm text-slate-600">{t('plan.popularDestinations')}</span>
+                  <span className="text-sm text-slate-600">{t('plan.visitFilter')}</span>
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {HOT_DESTINATIONS.map((name) => (
-                      <Chip
-                        key={name}
-                        active={form.destination === name}
-                        onClick={() =>
-                          updatePlace('destination', form.destination === name ? '' : name)
-                        }
-                      >
-                        {name}
-                      </Chip>
-                    ))}
+                    <Chip
+                      active={visitFilter === 'any'}
+                      onClick={() => setVisitFilter('any')}
+                    >
+                      {t('plan.visitAny')}
+                    </Chip>
+                    <Chip
+                      active={visitFilter === 'new'}
+                      onClick={() => setVisitFilter('new')}
+                    >
+                      {t('plan.visitNewOnly')}
+                    </Chip>
                   </div>
                 </div>
 
@@ -705,112 +694,6 @@ export default function PlanPage() {
                       className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
                     />
                   </label>
-                </div>
-
-                <label className="block text-sm">
-                  <span className="text-slate-600">{t('plan.holidayType')}</span>
-                  <select
-                    value={form.holidayType}
-                    onChange={(e) =>
-                      update('holidayType', e.target.value as HolidayType)
-                    }
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                  >
-                    {HOLIDAY_TYPES.map((h) => (
-                      <option key={h.value} value={h.value}>
-                        {t(h.label)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <label className="block text-sm">
-                    <span className="text-slate-600">{t('plan.origin')}</span>
-                    <input
-                      type="text"
-                      value={form.origin}
-                      onChange={(e) => updatePlace('origin', e.target.value)}
-                      placeholder="例: 東京"
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                    />
-                  </label>
-                  <label className="block text-sm">
-                    <span className="text-slate-600">{t('plan.destination')}</span>
-                    <input
-                      type="text"
-                      value={form.destination}
-                      onChange={(e) => updatePlace('destination', e.target.value)}
-                      placeholder="例: 福岡（出発地と同じなら同都市モード）"
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                    />
-                  </label>
-                </div>
-
-                <label className="block text-sm">
-                  <span className="text-slate-600">{t('plan.budget')}</span>
-                  <input
-                    type="number"
-                    min={0}
-                    value={form.budget}
-                    onChange={(e) => update('budget', e.target.value)}
-                    placeholder="例: 300000"
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                  />
-                </label>
-
-                <label className="block text-sm">
-                  <span className="text-slate-600">{t('plan.interests')}</span>
-                  <input
-                    type="text"
-                    value={form.interests}
-                    onChange={(e) => update('interests', e.target.value)}
-                    placeholder="例: food, nature"
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                  />
-                </label>
-
-                <label className="block text-sm">
-                  <span className="text-slate-600">{t('plan.region')}</span>
-                  <input
-                    type="text"
-                    value={form.region}
-                    onChange={(e) => update('region', e.target.value)}
-                    placeholder="例: East Asia"
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                  />
-                </label>
-
-                <div>
-                  <span className="text-sm text-slate-600">{t('plan.nearbyTheme')}</span>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {NEARBY_REGIONS.map((r) => (
-                      <Chip
-                        key={r.value}
-                        active={form.region === r.value}
-                        onClick={() =>
-                          update('region', form.region === r.value ? '' : r.value)
-                        }
-                      >
-                        {t('plan.nearbyPrefix')}{r.label}
-                      </Chip>
-                    ))}
-                    {THEME_INTERESTS.map((ti) => {
-                      const cur = form.interests
-                        .split(/[,、\s]+/)
-                        .map((s) => s.trim())
-                        .filter(Boolean)
-                      return (
-                        <Chip
-                          key={ti.value}
-                          active={cur.includes(ti.value)}
-                          onClick={() => toggleThemeInterest(ti.value)}
-                        >
-                          {t(ti.label)}
-                        </Chip>
-                      )
-                    })}
-                  </div>
                 </div>
 
                 <button
@@ -863,8 +746,8 @@ export default function PlanPage() {
       {recommendations.length > 0 && (
         <section className="mt-10">
           <h2 className="text-lg font-semibold text-slate-900">{t('plan.recommendedDestinations')}</h2>
-          <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <ul className="space-y-3 lg:col-span-1">
+          <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-5">
+            <ul className="space-y-3 lg:col-span-2">
               {recommendations.map((rec) => {
                 const active = selected?.destination.id === rec.destination.id
                 return (
@@ -914,9 +797,23 @@ export default function PlanPage() {
               })}
             </ul>
 
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-3">
               {selectedDest ? (
-                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                <>
+                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                    <div className="border-b border-slate-100 px-5 pb-1 pt-4">
+                      <h3 className="text-sm font-semibold text-slate-500">{t('visit.trailMap')}</h3>
+                    </div>
+                    <div className="h-[380px]">
+                      <DestinationMap
+                        name={selectedName}
+                        points={mapPoints}
+                        onTogglePoint={toggleStopExcluded}
+                        onMovePoint={moveStop}
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                   {selectedDest.image_url ? (
                     <img
                       src={selectedDest.image_url}
@@ -1013,13 +910,13 @@ export default function PlanPage() {
                       </p>
                     )}
 
-                    {mergedRoute.length > 0 && (
+                    {effectiveRoute.length > 0 && (
                       <div className="mt-5">
                         <h4 className="text-sm font-semibold text-slate-500">
                           {t('plan.modelRoute')}
                         </h4>
                         <div className="mt-2 space-y-3">
-                          {mergedRoute.map((d, di) => (
+                          {effectiveRoute.map((d, di) => (
                             <div key={di} className="rounded-lg border border-slate-200 p-3">
                               <p className="text-sm font-semibold text-rose-600">
                                 {d.day != null
@@ -1152,13 +1049,6 @@ export default function PlanPage() {
                             {t('visit.addToRoute')}
                           </button>
                         </form>
-
-                        <div className="mt-4">
-                          <h4 className="text-sm font-semibold text-slate-500">{t('visit.trailMap')}</h4>
-                          <div className="mt-2 h-72 overflow-hidden rounded-xl border border-slate-200">
-                            <DestinationMap name={selectedName} points={mapPoints} />
-                          </div>
-                        </div>
                       </div>
                     )}
 
@@ -1296,6 +1186,7 @@ export default function PlanPage() {
                     </div>
                   </div>
                 </div>
+                </>
               ) : (
                 <div className="flex h-80 items-center justify-center rounded-2xl border border-dashed border-slate-300 text-slate-400">
                   {t('plan.selectDestination')}
