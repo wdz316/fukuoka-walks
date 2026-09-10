@@ -1,9 +1,10 @@
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { coordinateFor, type LatLng } from '../lib/coordinates'
 import { useLang } from '../lib/lang'
+import { fetchFootPath, fetchTransitPath } from '../lib/routing'
 import { planLegs } from '../lib/routePlan'
 
 const DEFAULT_CENTER: LatLng = { lat: 20, lng: 30 }
@@ -76,14 +77,56 @@ function isInteractive(props: Pick<DestinationMapProps, 'onTogglePoint' | 'onMov
 export default function DestinationMap({ name, points = [], onTogglePoint, onMovePoint }: DestinationMapProps) {
   const { t } = useLang()
   const pos = coordinateFor(name)
-  if (!pos) return null
-  const center: LatLng = { lat: pos.lat, lng: pos.lng }
   const interactive = isInteractive({ onTogglePoint, onMovePoint })
   const includedPoints = points.filter((p) => p.included !== false)
   const legs = planLegs(includedPoints)
   const legByFrom = new Map(legs.map((l) => [l.from, l]))
   const legByTo = new Map(legs.map((l) => [l.to, l]))
   const orderOf = new Map(includedPoints.map((p, i) => [p.name, i + 1]))
+
+  // Real geometry: walk legs via OSRM foot, transit legs via Valhalla
+  // multimodal. Either falls back to a straight dashed line when the
+  // public service has no data for the area.
+  const [footPaths, setFootPaths] = useState<Record<string, [number, number][]>>({})
+  const [transitPaths, setTransitPaths] = useState<Record<string, [number, number][]>>({})
+  useEffect(() => {
+    const ctrl = new AbortController()
+    let cancelled = false
+    const byName = new Map(includedPoints.map((p) => [p.name, p]))
+    if (legs.length === 0) {
+      setFootPaths({})
+      setTransitPaths({})
+      return () => ctrl.abort()
+    }
+    void (async () => {
+      const foot: Record<string, [number, number][]> = {}
+      const transit: Record<string, [number, number][]> = {}
+      await Promise.all(
+        legs.map(async (l) => {
+          const a = byName.get(l.from)
+          const b = byName.get(l.to)
+          if (!a || !b) return
+          const path =
+            l.mode === 'walk'
+              ? await fetchFootPath(a, b, ctrl.signal)
+              : await fetchTransitPath(a, b, ctrl.signal)
+          if (path) (l.mode === 'walk' ? foot : transit)[`${l.from}-${l.to}`] = path
+        }),
+      )
+      if (!cancelled) {
+        setFootPaths(foot)
+        setTransitPaths(transit)
+      }
+    })()
+    return () => {
+      cancelled = true
+      ctrl.abort()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [points])
+
+  if (!pos) return null
+  const center: LatLng = { lat: pos.lat, lng: pos.lng }
 
 const WALK_COLOR = '#16a34a'
 const TRANSIT_COLOR = '#2563eb'
@@ -108,21 +151,27 @@ function legDetail(t: (key: string, params?: Record<string, string | number>) =>
         <Marker position={[center.lat, center.lng]} icon={icon}>
           <Popup>{name}</Popup>
         </Marker>
-        {legs.map((leg, i) => {
-          const a = includedPoints[i]
-          const b = includedPoints[i + 1]
-          const color = leg.mode === 'walk' ? WALK_COLOR : TRANSIT_COLOR
+        {legs.map((leg) => {
+          const a = includedPoints.find((p) => p.name === leg.from)
+          const b = includedPoints.find((p) => p.name === leg.to)
+          if (!a || !b) return null
+          const isWalk = leg.mode === 'walk'
+          const routed = isWalk
+            ? footPaths[`${leg.from}-${leg.to}`]
+            : transitPaths[`${leg.from}-${leg.to}`]
+          const positions: [number, number][] = routed ?? [
+            [a.lat, a.lng],
+            [b.lat, b.lng],
+          ]
+          const color = isWalk ? WALK_COLOR : TRANSIT_COLOR
           return (
             <Polyline
               key={`${leg.from}-${leg.to}`}
-              positions={[
-                [a.lat, a.lng],
-                [b.lat, b.lng],
-              ]}
+              positions={positions}
               pathOptions={{
                 color,
                 weight: 4,
-                dashArray: leg.mode === 'walk' ? '2,6' : '8,6',
+                dashArray: routed ? undefined : isWalk ? '2,6' : '8,6',
                 lineCap: 'round',
               }}
             />
