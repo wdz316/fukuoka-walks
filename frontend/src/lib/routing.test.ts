@@ -94,4 +94,27 @@ describe('fetchTransitPath', () => {
     )
     expect(await fetchTransitPath({ lat: 0, lng: 0 }, { lat: 1, lng: 1 })).toBeNull()
   })
+
+  it('falls back to auto costing when multimodal is unconnected', async () => {
+    const spy = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 400,
+        json: () => Promise.resolve({ error_code: 170 }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: () =>
+          Promise.resolve({ trip: { legs: [{ shape: '_izlhA~rlgdF_{geC~ywl@_kwzCn`{nI' }] } }),
+      })
+    vi.stubGlobal('fetch', spy)
+    const path = await fetchTransitPath({ lat: 0, lng: 0 }, { lat: 1, lng: 1 })
+    expect(path).toHaveLength(3)
+    expect(spy).toHaveBeenCalledTimes(2)
+    const secondBody = JSON.parse((spy.mock.calls[1] as [string, RequestInit])[1].body as string) as {
+      costing: string
+    }
+    expect(secondBody.costing).toBe('auto')
+  })
 })

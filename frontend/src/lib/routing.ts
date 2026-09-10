@@ -89,9 +89,10 @@ const VALHALLA_BASE = "https://valhalla1.openstreetmap.de/route";
 const transitCache = new Map<string, [number, number][] | null>();
 
 /**
- * Transit-aware path via Valhalla multimodal (bus/rail where covered).
- * Returns null when unsupported (e.g. no transit data for the area) —
- * caller keeps the straight dashed line. Cached per coordinate pair.
+ * Transit-aware path: Valhalla multimodal first (bus/rail where covered),
+ * then Valhalla auto (road-following approximation — buses run on roads).
+ * Returns null when the public server has no data — caller keeps the
+ * straight dashed line. Cached per coordinate pair.
  */
 export async function fetchTransitPath(
   a: { lat: number; lng: number },
@@ -100,6 +101,19 @@ export async function fetchTransitPath(
 ): Promise<[number, number][] | null> {
   const k = key(a, b);
   if (transitCache.has(k)) return transitCache.get(k) ?? null;
+  const path =
+    (await queryValhalla(a, b, "multimodal", signal)) ??
+    (await queryValhalla(a, b, "auto", signal));
+  transitCache.set(k, path);
+  return path;
+}
+
+async function queryValhalla(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+  costing: string,
+  signal?: AbortSignal,
+): Promise<[number, number][] | null> {
   try {
     const res = await fetch(VALHALLA_BASE, {
       method: "POST",
@@ -109,29 +123,20 @@ export async function fetchTransitPath(
           { lat: a.lat, lon: a.lng },
           { lat: b.lat, lon: b.lng },
         ],
-        costing: "multimodal",
+        costing,
         directions_options: { language: "ja-JP" },
       }),
       signal,
     });
-    if (!res.ok) {
-      transitCache.set(k, null);
-      return null;
-    }
+    if (!res.ok) return null;
     const body = (await res.json()) as {
       trip?: { legs?: { shape?: string }[] };
     };
     const shape = body.trip?.legs?.[0]?.shape;
-    if (!shape) {
-      transitCache.set(k, null);
-      return null;
-    }
+    if (!shape) return null;
     const path = decodePolyline(shape, 6);
-    transitCache.set(k, path.length > 1 ? path : null);
     return path.length > 1 ? path : null;
   } catch {
-    if (signal?.aborted) return null;
-    transitCache.set(k, null);
     return null;
   }
 }
