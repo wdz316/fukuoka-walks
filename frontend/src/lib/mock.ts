@@ -7,6 +7,8 @@ import type {
   Recommendation,
   Season,
   Trip,
+  Visit,
+  VisitInput,
 } from "./types";
 
 const CATALOGUE: Destination[] = [
@@ -197,6 +199,7 @@ const seedTrips: Trip[] = [
     notes: "Momiji season temple walk",
     created_at: "2026-08-01T09:00:00Z",
     updated_at: "2026-08-01T09:00:00Z",
+    status: "planned",
   },
   {
     id: 2,
@@ -207,6 +210,7 @@ const seedTrips: Trip[] = [
     notes: "Try Niseko powder",
     created_at: "2026-08-05T12:30:00Z",
     updated_at: "2026-08-05T12:30:00Z",
+    status: "planned",
   },
 ];
 
@@ -222,6 +226,8 @@ class MockApi implements Api {
   private trips: Trip[] = seedTrips.map((t) => ({ ...t }));
   private nextTripId = seedTrips.length + 1;
   private preferences: Preferences = { ...defaultPreferences };
+  private visits: Visit[] = [];
+  private nextVisitId = 1;
 
   private delay(): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, 150));
@@ -338,6 +344,54 @@ class MockApi implements Api {
     await this.delay();
     this.preferences = { ...prefs };
     return { ...this.preferences };
+  }
+
+  async getVisits(): Promise<Visit[]> {
+    await this.delay();
+    return this.visits.map((v) => ({ ...v }));
+  }
+
+  async addVisit(input: VisitInput): Promise<Visit> {
+    await this.delay();
+    const visit: Visit = {
+      id: this.nextVisitId++,
+      destination_id: input.destination_id,
+      attraction_name: input.attraction_name,
+      visited_at: new Date().toISOString(),
+    };
+    this.visits.push(visit);
+    return { ...visit };
+  }
+
+  async deleteVisit(id: number): Promise<void> {
+    await this.delay();
+    const idx = this.visits.findIndex((v) => v.id === id);
+    if (idx === -1) throw new Error("Visit not found");
+    this.visits.splice(idx, 1);
+  }
+
+  async completeTrip(id: number, stops: string[]): Promise<Trip> {
+    await this.delay();
+    const idx = this.trips.findIndex((t) => t.id === id);
+    if (idx === -1) throw new Error("Trip not found");
+    for (const name of stops) {
+      const exists = this.visits.some((v) => v.attraction_name === name);
+      if (!exists) {
+        this.visits.push({
+          id: this.nextVisitId++,
+          destination_id: this.trips[idx].destination_id,
+          attraction_name: name,
+          visited_at: new Date().toISOString(),
+        });
+      }
+    }
+    const updated: Trip = {
+      ...this.trips[idx],
+      status: "completed",
+      updated_at: new Date().toISOString(),
+    };
+    this.trips[idx] = updated;
+    return { ...updated };
   }
 
   getDestinationById(id: number): Destination | undefined {

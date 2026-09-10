@@ -8,11 +8,25 @@ import type {
   Recommendation,
   Season,
   Trip,
+  Visit,
+  VisitInput,
 } from "./types";
 
 const BASE_URL = "";
 
 const REQUEST_TIMEOUT_MS = 20_000;
+
+const DEVICE_ID_KEY = "device_id";
+
+/** Stable per-browser device id persisted in localStorage (足迹 / visits). */
+export function deviceId(): string {
+  let id = localStorage.getItem(DEVICE_ID_KEY);
+  if (!id) {
+    id = `device-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+    localStorage.setItem(DEVICE_ID_KEY, id);
+  }
+  return id;
+}
 
 function assertDefined<T>(value: T, label: string): asserts value is NonNullable<T> {
   if (value == null) throw new ApiClientError(`${label} is missing`);
@@ -37,6 +51,11 @@ function assertRecommendation(v: unknown): asserts v is Recommendation {
   assertDefined(isObject(v) ? v.destination : undefined, "Recommendation.destination");
   assertDefined(isObject(v) ? v.score : undefined, "Recommendation.score");
   assertDestination((v as Record<string, unknown>).destination);
+}
+
+function assertVisit(v: unknown): asserts v is Visit {
+  assertDefined(isObject(v) ? v.id : undefined, "Visit.id");
+  assertDefined(isObject(v) ? v.attraction_name : undefined, "Visit.attraction_name");
 }
 
 function narrowArray<T>(arr: unknown[], guard: (v: unknown) => asserts v is T): T[] {
@@ -156,6 +175,41 @@ class FetchApi implements Api {
       method: "PUT",
       body: JSON.stringify(prefs),
     });
+  }
+
+  async getVisits(): Promise<Visit[]> {
+    const data = await this.fetchJson<unknown[]>(
+      `/api/visits?device_id=${encodeURIComponent(deviceId())}`,
+    );
+    return narrowArray(data, assertVisit);
+  }
+
+  async addVisit(input: VisitInput): Promise<Visit> {
+    const data = await this.fetchJson<unknown>(
+      `/api/visits?device_id=${encodeURIComponent(deviceId())}`,
+      {
+        method: "POST",
+        body: JSON.stringify(input),
+      },
+    );
+    assertVisit(data);
+    return data;
+  }
+
+  async deleteVisit(id: number): Promise<void> {
+    await this.fetchJson<unknown>(
+      `/api/visits/${id}?device_id=${encodeURIComponent(deviceId())}`,
+      { method: "DELETE" },
+    );
+  }
+
+  async completeTrip(id: number, stops: string[]): Promise<Trip> {
+    const data = await this.fetchJson<unknown>(`/api/trips/${id}/complete`, {
+      method: "POST",
+      body: JSON.stringify({ stops }),
+    });
+    assertTrip(data);
+    return data;
   }
 }
 

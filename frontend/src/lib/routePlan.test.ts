@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildRoute } from './routePlan'
+import { buildRoute, mergeCustomPlaces } from './routePlan'
 import type { PlaceInfo } from './types'
 
 const kushida: PlaceInfo = { name: '櫛田神社', day: 1, url: 'https://example.com/kushida' }
@@ -63,5 +63,43 @@ describe('buildRoute', () => {
     expect(days).toHaveLength(1)
     expect(days[0].stops.map((s) => s.timeLabel)).toEqual(['午前', '午後', '夕方'])
     expect(days[0].extras.map((s) => s.name)).toEqual(['spot4', 'spot5'])
+  })
+})
+
+describe('mergeCustomPlaces', () => {
+  it('appends custom places to the route tail in an isCustom day', () => {
+    const days = buildRoute([kushida, dazaifu], [])
+    const merged = mergeCustomPlaces(days, [{ name: 'もつ鍋やまや', note: 'ホルモン' }])
+    expect(merged).toHaveLength(3)
+    const last = merged[merged.length - 1]
+    expect(last).toMatchObject({ day: null, isCustom: true })
+    expect(last.stops[0]).toMatchObject({
+      name: 'もつ鍋やまや',
+      timeLabel: '自定',
+      transport: '',
+      kind: 'custom',
+      note: 'ホルモン',
+    })
+    expect(last.extras).toEqual([])
+  })
+
+  it('returns the route unchanged when there are no custom places', () => {
+    const days = buildRoute([kushida], [])
+    expect(mergeCustomPlaces(days, [])).toBe(days)
+  })
+
+  it('produces a custom-only day when the scheduled route is empty', () => {
+    const merged = mergeCustomPlaces([], [{ name: '天神地下街' }])
+    expect(merged).toHaveLength(1)
+    expect(merged[0].stops[0]).toMatchObject({ name: '天神地下街', kind: 'custom' })
+  })
+
+  it('appends multiple custom places in order with optional notes', () => {
+    const merged = mergeCustomPlaces(
+      [],
+      [{ name: 'A' }, { name: 'B', note: 'メモ' }],
+    )
+    expect(merged[0].stops.map((s) => s.name)).toEqual(['A', 'B'])
+    expect(merged[0].stops.map((s) => s.note)).toEqual([undefined, 'メモ'])
   })
 })

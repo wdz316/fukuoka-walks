@@ -114,6 +114,26 @@ const zh: Dict = {
   'plan.selectDestination': '请选择旅行目的地',
   'plan.regionUnlimited': '・取消地区限定',
 
+  // Recommend — 足迹 (check-in / visited)
+  'visit.trailMap': '足迹地图',
+  'visit.completeCheckin': '完成打卡',
+  'visit.completing': '打卡中...',
+  'visit.completedMsg': '已为 {n} 个地点完成打卡',
+  'visit.completeFail': '打卡失败，请稍后重试',
+  'visit.completed': '已完成打卡',
+  'visit.checkinHint': '点击后，将当前路线的所有地点标记为已去过。',
+  'visit.saveFirst': '请先保存计划后再打卡。',
+  'visit.visited': '去过',
+  'visit.notVisited': '未去',
+  'visit.customPlaces': '自定地点',
+  'visit.customStop': '自定',
+  'visit.addCustomPlace': '+ 自定地点',
+  'visit.placeName': '地点名',
+  'visit.note': '备注',
+  'visit.addToRoute': '加入路线',
+  'visit.customAdded': '已将「{name}」加入路线',
+  'visit.emptyCustom': '请输入地点名。',
+
   // Recommend — messages
   'plan.msgNoMatch': '未找到符合「{summary}」的旅行目的地。',
   'plan.pinnedPrefix': '指定目的地：',
@@ -269,6 +289,26 @@ const ja: Dict = {
   'plan.exportIcs': 'ICS（カレンダー）で出力',
   'plan.selectDestination': '旅行先を選択してください',
   'plan.regionUnlimited': '・地域の絞り込みを外します',
+
+  // Recommend — フットプリント (チェックイン)
+  'visit.trailMap': 'フットプリントマップ',
+  'visit.completeCheckin': 'チェックイン完了',
+  'visit.completing': 'チェックイン中...',
+  'visit.completedMsg': '{n} 件のスポットをチェックインしました',
+  'visit.completeFail': 'チェックインに失敗しました。後で再試行してください',
+  'visit.completed': 'チェックイン済み',
+  'visit.checkinHint': 'クリックすると、現在のルートの全スポットを「行った」にします。',
+  'visit.saveFirst': '先にプランを保存してからチェックインしてください。',
+  'visit.visited': '行った',
+  'visit.notVisited': '未訪問',
+  'visit.customPlaces': 'カスタム地点',
+  'visit.customStop': 'カスタム',
+  'visit.addCustomPlace': '+ カスタム地点',
+  'visit.placeName': 'スポット名',
+  'visit.note': 'メモ',
+  'visit.addToRoute': 'ルートに追加',
+  'visit.customAdded': '「{name}」をルートに追加しました',
+  'visit.emptyCustom': 'スポット名を入力してください。',
 
   // Recommend — messages
   'plan.msgNoMatch': '「{summary}」に合う旅行先が見つかりませんでした。',

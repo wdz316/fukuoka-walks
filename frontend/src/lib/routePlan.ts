@@ -4,11 +4,12 @@ export interface RouteStop {
   name: string;
   timeLabel: string;
   transport: string;
-  kind: "attraction" | "hotel";
+  kind: "attraction" | "hotel" | "custom";
   url?: string;
   booking_url?: string;
   phone?: string;
   address?: string;
+  note?: string;
 }
 
 export interface RouteDay {
@@ -17,6 +18,13 @@ export interface RouteDay {
   stops: RouteStop[];
   /** Overflow spots beyond the 3 daily slots (午前/午後/夕方). */
   extras: RouteStop[];
+  /** True when this group holds only user-added 自定地点 stops. */
+  isCustom?: boolean;
+}
+
+export interface CustomPlace {
+  name: string;
+  note?: string;
 }
 
 const SLOTS = [
@@ -114,4 +122,25 @@ export function buildRoute(
   return [...byDay.entries()]
     .sort(([x], [y]) => (x ?? 9999) - (y ?? 9999))
     .map(([day, stops]) => ({ day, stops, extras: extraMap.get(day) ?? [] }));
+}
+
+/**
+ * Append user-added 自定地点 (custom places) to the tail of a route.
+ * Custom spots never carry coordinates, so callers must not place them on the
+ * map. They are grouped into a trailing `isCustom` day so they render after
+ * every scheduled stop and stay clearly labelled.
+ */
+export function mergeCustomPlaces(
+  route: RouteDay[],
+  customs: readonly CustomPlace[],
+): RouteDay[] {
+  if (customs.length === 0) return route;
+  const stops: RouteStop[] = customs.map((c) => ({
+    name: c.name,
+    timeLabel: "自定",
+    transport: "",
+    kind: "custom" as const,
+    note: c.note,
+  }));
+  return [...route, { day: null, isCustom: true, stops, extras: [] }];
 }

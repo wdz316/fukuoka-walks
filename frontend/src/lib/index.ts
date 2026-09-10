@@ -16,6 +16,8 @@ export type {
   Season,
   Trip,
   AiProvider,
+  Visit,
+  VisitInput,
 } from "./types";
 
 export const api: Api = USE_MOCK ? createMockApi() : createApi();

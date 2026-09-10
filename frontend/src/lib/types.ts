@@ -40,6 +40,19 @@ export interface Trip {
   notes?: string;
   created_at?: string;
   updated_at?: string;
+  status?: string;
+}
+
+export interface Visit {
+  id: number;
+  destination_id?: number;
+  attraction_name: string;
+  visited_at?: string;
+}
+
+export interface VisitInput {
+  destination_id?: number;
+  attraction_name: string;
 }
 
 export interface RecommendRequest {
@@ -80,4 +93,8 @@ export interface Api {
   exportTripUrl(id: number, format?: ExportFormat): string;
   getPreferences(): Promise<Preferences | null>;
   updatePreferences(prefs: Preferences): Promise<Preferences>;
+  getVisits(): Promise<Visit[]>;
+  addVisit(input: VisitInput): Promise<Visit>;
+  deleteVisit(id: number): Promise<void>;
+  completeTrip(id: number, stops: string[]): Promise<Trip>;
 }

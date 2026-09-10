@@ -8,6 +8,11 @@ describe('coordinateFor', () => {
     expect(coordinateFor('Paris')).toEqual({ lat: 48.8566, lng: 2.3522 })
   })
 
+  it('returns Fukuoka coordinates (足迹 city-tour target)', () => {
+    expect(coordinateFor('Fukuoka')).toEqual({ lat: 33.5904, lng: 130.4017 })
+    expect(coordinateFor('福岡')).toEqual({ lat: 33.5904, lng: 130.4017 })
+  })
+
   it('returns null for unknown destinations', () => {
     expect(coordinateFor('Atlantis')).toBeNull()
     expect(coordinateFor(undefined)).toBeNull()

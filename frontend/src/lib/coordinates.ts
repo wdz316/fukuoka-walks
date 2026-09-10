@@ -14,6 +14,8 @@ const COORDINATES: Record<string, LatLng | undefined> = {
   Sydney: { lat: -33.8688, lng: 151.2093 },
   Iceland: { lat: 64.1466, lng: -21.9426 },
   "Costa Rica": { lat: 9.7489, lng: -83.7534 },
+  Fukuoka: { lat: 33.5904, lng: 130.4017 },
+  福岡: { lat: 33.5904, lng: 130.4017 },
 }
 
 export function coordinateFor(name: string | undefined): LatLng | null {

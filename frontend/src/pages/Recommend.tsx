@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
-import DestinationMap from '../components/DestinationMap'
+import DestinationMap, { type MapPoint } from '../components/DestinationMap'
 import {
   api,
   type Destination,
@@ -8,6 +8,7 @@ import {
   type Recommendation,
   type RecommendRequest,
   type Trip,
+  type Visit,
 } from '../lib'
 import { destinationNameMatches, isSameCity } from '../lib/places'
 import {
@@ -23,7 +24,7 @@ import {
 } from '../lib/sameCity'
 import { countryLabel, regionLabel, seasonLabel } from '../lib/i18n'
 import { displayName } from '../lib/placeNames'
-import { buildRoute } from '../lib/routePlan'
+import { buildRoute, mergeCustomPlaces, type CustomPlace } from '../lib/routePlan'
 import { useLang } from '../lib/lang'
 
 const HOLIDAY_TYPES: { value: HolidayType; label: string }[] = [
@@ -142,6 +143,11 @@ function reasonList(reason: string | undefined): string[] {
   return reason.split(/[。；;\n]/).map((s) => s.trim()).filter(Boolean)
 }
 
+/** Merge user-added 自定地点 into the trip notes (name：note, 、-separated). */
+function customNoteText(customs: CustomPlace[]): string {
+  return customs.map((c) => `${c.name}${c.note ? `：${c.note}` : ''}`).join('、')
+}
+
 function Chip({
   active,
   onClick,
@@ -181,6 +187,29 @@ export default function PlanPage() {
   // Panel tab: 'auto' follows same-city detection, manual picks stick until
   // 出発地/目的地 are edited again.
   const [modeTab, setModeTab] = useState<'auto' | 'normal' | 'city'>('auto')
+  // 足迹 (check-in) state: visited spots for the selected destination, plus
+  // user-added 自定地点 which only live on the current route (notes on save).
+  const [visits, setVisits] = useState<Visit[]>([])
+  const [customPlaces, setCustomPlaces] = useState<CustomPlace[]>([])
+  const [customName, setCustomName] = useState('')
+  const [customNote, setCustomNote] = useState('')
+  const [checkingIn, setCheckingIn] = useState(false)
+  const [visitError, setVisitError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    api
+      .getVisits()
+      .then((list) => {
+        if (!cancelled) setVisits(list)
+      })
+      .catch(() => {
+        if (!cancelled) setVisits([])
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [selected?.destination.id])
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -386,7 +415,7 @@ export default function PlanPage() {
         start_date: plan.start,
         end_date: plan.end,
         destination_id: selected.destination.id,
-        notes: selected.reason ?? '',
+        notes: [selected.reason ?? '', customNoteText(customPlaces)].filter(Boolean).join('\n'),
       }
       const saved = await api.saveTrip(trip)
       setSavedTrip(saved)
@@ -402,6 +431,41 @@ export default function PlanPage() {
     if (!savedTrip?.id) return
     const url = api.exportTripUrl(savedTrip.id, format)
     window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  function handleAddCustom(e: FormEvent) {
+    e.preventDefault()
+    const name = customName.trim()
+    if (!name) {
+      setVisitError(t('visit.emptyCustom'))
+      return
+    }
+    const note = customNote.trim()
+    setCustomPlaces((prev) => [...prev, { name, note: note || undefined }])
+    setCustomName('')
+    setCustomNote('')
+    setVisitError(null)
+    setMessage(t('visit.customAdded', { name }))
+  }
+
+  async function handleComplete() {
+    if (!savedTrip?.id) return
+    const names = mergedRoute
+      .flatMap((d) => d.stops.map((s) => s.name))
+      .filter((n, i, arr) => arr.indexOf(n) === i)
+    setCheckingIn(true)
+    setVisitError(null)
+    try {
+      const updated = await api.completeTrip(savedTrip.id, names)
+      setSavedTrip({ ...savedTrip, ...updated })
+      const fresh = await api.getVisits()
+      setVisits(fresh)
+      setMessage(t('visit.completedMsg', { n: names.length }))
+    } catch (err: unknown) {
+      setVisitError(err instanceof Error ? err.message : t('visit.completeFail'))
+    } finally {
+      setCheckingIn(false)
+    }
   }
 
   const selectedName = selected?.destination.name ?? ''
@@ -420,6 +484,24 @@ export default function PlanPage() {
         includeHotels: days === 0 || days >= 2,
       })
     : []
+  const mergedRoute = mergeCustomPlaces(route, customPlaces)
+  const visitedNames = useMemo(
+    () => new Set(visits.map((v) => v.attraction_name)),
+    [visits],
+  )
+  const mapPoints: MapPoint[] = useMemo(() => {
+    if (!selectedDest) return []
+    const spots = [...(selectedDest.attractions ?? []), ...(selectedDest.hotels ?? [])]
+    return spots
+      .filter((p) => typeof p.lat === 'number' && typeof p.lng === 'number')
+      .map((p) => ({
+        name: p.name,
+        lat: p.lat as number,
+        lng: p.lng as number,
+        visited: visitedNames.has(p.name),
+      }))
+  }, [selectedDest, visitedNames])
+  const tripCompleted = savedTrip?.status === 'completed'
 
   return (
     <div className="mx-auto max-w-6xl px-6 py-10">
@@ -931,26 +1013,30 @@ export default function PlanPage() {
                       </p>
                     )}
 
-                    {route.length > 0 && (
+                    {mergedRoute.length > 0 && (
                       <div className="mt-5">
                         <h4 className="text-sm font-semibold text-slate-500">
                           {t('plan.modelRoute')}
                         </h4>
                         <div className="mt-2 space-y-3">
-                          {route.map((d, di) => (
+                          {mergedRoute.map((d, di) => (
                             <div key={di} className="rounded-lg border border-slate-200 p-3">
                               <p className="text-sm font-semibold text-rose-600">
-                                {d.day != null ? t('plan.dayX', { day: d.day }) : t('plan.commonSchedule')}
+                                {d.day != null
+                                  ? t('plan.dayX', { day: d.day })
+                                  : d.isCustom
+                                    ? t('visit.customPlaces')
+                                    : t('plan.commonSchedule')}
                               </p>
                               <ul className="mt-2 space-y-2">
                                 {d.stops.map((s, si) => (
                                   <li key={si} className="flex gap-2 text-sm">
                                     <span className="w-10 flex-none rounded bg-slate-100 px-1 py-0.5 text-center text-xs text-slate-600">
-                                      {s.timeLabel}
+                                      {s.kind === 'custom' ? t('visit.customStop') : s.timeLabel}
                                     </span>
                                     <div className="min-w-0">
                                       <p className="font-medium text-slate-800">
-                                        {s.kind === 'hotel' ? '🏨 ' : '📍 '}
+                                        {s.kind === 'hotel' ? '🏨 ' : s.kind === 'custom' ? '✚ ' : '📍 '}
                                         {s.url ? (
                                           <a
                                             href={s.url}
@@ -964,22 +1050,28 @@ export default function PlanPage() {
                                           s.name
                                         )}
                                       </p>
-                                      <p className="text-xs text-slate-500">
-                                        {t('plan.transport', { transport: s.transport })}
-                                        {s.booking_url && (
-                                          <>
-                                            {' ・ '}
-                                            <a
-                                              href={s.booking_url}
-                                              target="_blank"
-                                              rel="noreferrer"
-                                              className="font-medium text-rose-600 hover:text-rose-700"
-                                            >
-                                              {t('plan.book')}
-                                            </a>
-                                          </>
-                                        )}
-                                      </p>
+                                      {s.kind === 'custom' ? (
+                                        s.note ? (
+                                          <p className="text-xs text-slate-500">{s.note}</p>
+                                        ) : null
+                                      ) : (
+                                        <p className="text-xs text-slate-500">
+                                          {t('plan.transport', { transport: s.transport })}
+                                          {s.booking_url && (
+                                            <>
+                                              {' ・ '}
+                                              <a
+                                                href={s.booking_url}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                                className="font-medium text-rose-600 hover:text-rose-700"
+                                              >
+                                                {t('plan.book')}
+                                              </a>
+                                            </>
+                                          )}
+                                        </p>
+                                      )}
                                     </div>
                                   </li>
                                 ))}
@@ -1011,6 +1103,61 @@ export default function PlanPage() {
                               )}
                             </div>
                           ))}
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={handleComplete}
+                            disabled={!hasSaved || checkingIn || tripCompleted}
+                            className="rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
+                          >
+                            {tripCompleted
+                              ? t('visit.completed')
+                              : checkingIn
+                                ? t('visit.completing')
+                                : t('visit.completeCheckin')}
+                          </button>
+                          {!hasSaved && (
+                            <span className="text-xs text-slate-500">{t('visit.saveFirst')}</span>
+                          )}
+                          {visitError && <span className="text-xs text-rose-600">{visitError}</span>}
+                        </div>
+                        <p className="mt-1 text-xs text-slate-400">{t('visit.checkinHint')}</p>
+
+                        <form onSubmit={handleAddCustom} className="mt-3 flex flex-wrap items-end gap-2">
+                          <label className="flex flex-col text-sm">
+                            <span className="text-xs text-slate-500">{t('visit.placeName')}</span>
+                            <input
+                              type="text"
+                              value={customName}
+                              onChange={(e) => setCustomName(e.target.value)}
+                              placeholder="例: もつ鍋 やまや"
+                              className="mt-1 w-48 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                            />
+                          </label>
+                          <label className="flex flex-col text-sm">
+                            <span className="text-xs text-slate-500">{t('visit.note')}</span>
+                            <input
+                              type="text"
+                              value={customNote}
+                              onChange={(e) => setCustomNote(e.target.value)}
+                              className="mt-1 w-48 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                            />
+                          </label>
+                          <button
+                            type="submit"
+                            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+                          >
+                            {t('visit.addToRoute')}
+                          </button>
+                        </form>
+
+                        <div className="mt-4">
+                          <h4 className="text-sm font-semibold text-slate-500">{t('visit.trailMap')}</h4>
+                          <div className="mt-2 h-72 overflow-hidden rounded-xl border border-slate-200">
+                            <DestinationMap name={selectedName} points={mapPoints} />
+                          </div>
                         </div>
                       </div>
                     )}
