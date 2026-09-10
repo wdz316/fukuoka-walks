@@ -146,6 +146,7 @@ const zh: Dict = {
   'plan.transitMode': '电车巴士',
   'plan.minutes': '{n}分钟',
   'plan.nextStop': '下一站：{to}（{detail}）',
+  'plan.arriveBy': '从{from}来（{detail}）',
   'plan.lastStop': '终点',
 
   // Recommend — messages
@@ -336,6 +337,7 @@ const ja: Dict = {
   'plan.transitMode': '電車・バス',
   'plan.minutes': '{n}分',
   'plan.nextStop': '次：{to}（{detail}）',
+  'plan.arriveBy': '{from}から（{detail}）',
   'plan.lastStop': '終点',
 
   // Recommend — messages

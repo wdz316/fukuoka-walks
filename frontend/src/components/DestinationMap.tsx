@@ -80,10 +80,17 @@ export default function DestinationMap({ name, points = [], onTogglePoint, onMov
   const center: LatLng = { lat: pos.lat, lng: pos.lng }
   const interactive = isInteractive({ onTogglePoint, onMovePoint })
   const includedPoints = points.filter((p) => p.included !== false)
-  const routeLine: [number, number][] = includedPoints.map((p) => [p.lat, p.lng])
   const legs = planLegs(includedPoints)
   const legByFrom = new Map(legs.map((l) => [l.from, l]))
+  const legByTo = new Map(legs.map((l) => [l.to, l]))
   const orderOf = new Map(includedPoints.map((p, i) => [p.name, i + 1]))
+
+const WALK_COLOR = '#16a34a'
+const TRANSIT_COLOR = '#2563eb'
+
+function legDetail(t: (key: string, params?: Record<string, string | number>) => string, leg: { mode: string; minutes: number }): string {
+  return `${t(leg.mode === 'walk' ? 'plan.walkMode' : 'plan.transitMode')} ${t('plan.minutes', { n: leg.minutes })}`
+}
 
   return (
     <div className="relative h-full w-full" style={{ minHeight: 300 }}>
@@ -101,13 +108,31 @@ export default function DestinationMap({ name, points = [], onTogglePoint, onMov
         <Marker position={[center.lat, center.lng]} icon={icon}>
           <Popup>{name}</Popup>
         </Marker>
-        {routeLine.length > 1 && (
-          <Polyline positions={routeLine} pathOptions={{ color: '#2563eb', weight: 3, dashArray: '8,6' }} />
-        )}
+        {legs.map((leg, i) => {
+          const a = includedPoints[i]
+          const b = includedPoints[i + 1]
+          const color = leg.mode === 'walk' ? WALK_COLOR : TRANSIT_COLOR
+          return (
+            <Polyline
+              key={`${leg.from}-${leg.to}`}
+              positions={[
+                [a.lat, a.lng],
+                [b.lat, b.lng],
+              ]}
+              pathOptions={{
+                color,
+                weight: 4,
+                dashArray: leg.mode === 'walk' ? '2,6' : '8,6',
+                lineCap: 'round',
+              }}
+            />
+          )
+        })}
         {points.map((p) => {
           const included = p.included !== false
           const order = orderOf.get(p.name) ?? 0
-          const leg = legByFrom.get(p.name)
+          const next = legByFrom.get(p.name)
+          const prev = legByTo.get(p.name)
           return (
             <Marker
               key={p.name}
@@ -128,16 +153,25 @@ export default function DestinationMap({ name, points = [], onTogglePoint, onMov
                   </div>
                   <div>
                     {p.visited ? t('visit.visited') : t('visit.notVisited')}
-                    {included && leg && (
+                    {included && prev && (
                       <>
                         <br />
-                        {t('plan.nextStop', {
-                          to: leg.to,
-                          detail: `${t(leg.mode === 'walk' ? 'plan.walkMode' : 'plan.transitMode')} ${t('plan.minutes', { n: leg.minutes })}`,
+                        {t('plan.arriveBy', {
+                          from: prev.from,
+                          detail: legDetail(t, prev),
                         })}
                       </>
                     )}
-                    {included && !leg && (
+                    {included && next && (
+                      <>
+                        <br />
+                        {t('plan.nextStop', {
+                          to: next.to,
+                          detail: legDetail(t, next),
+                        })}
+                      </>
+                    )}
+                    {included && !prev && !next && (
                       <>
                         <br />
                         {t('plan.lastStop')}
@@ -193,6 +227,20 @@ export default function DestinationMap({ name, points = [], onTogglePoint, onMov
               <span>{t('visit.routeExcluded')}</span>
             </div>
           )}
+          <div className="mt-1 flex items-center gap-2">
+            <span
+              className="inline-block h-0.5 w-4"
+              style={{ background: WALK_COLOR }}
+            />
+            <span>{t('plan.walkMode')}</span>
+          </div>
+          <div className="mt-1 flex items-center gap-2">
+            <span
+              className="inline-block h-0 w-4 border-t-2 border-dashed"
+              style={{ borderColor: TRANSIT_COLOR }}
+            />
+            <span>{t('plan.transitMode')}</span>
+          </div>
         </div>
       )}
       {interactive && (
