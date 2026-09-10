@@ -99,8 +99,37 @@ class Trip(BaseModel):
     destination_id: int | None = None
     notes: str | None = None
     budget: float | None = None
+    status: str = "planned"
     created_at: datetime
     updated_at: datetime
+
+
+class Visit(BaseModel):
+    """components.schemas.Visit — a single visited attraction (足迹)."""
+
+    id: int
+    device_id: str
+    destination_id: int | None = None
+    attraction_name: str
+    visited_at: datetime
+
+
+class VisitIn(BaseModel):
+    """Request body for POST /api/visits."""
+
+    destination_id: int | None = None
+    attraction_name: str
+    visited_at: datetime | None = None
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class TripCompleteIn(BaseModel):
+    """Request body for POST /api/trips/{id}/complete."""
+
+    stops: list[str] = Field(default_factory=list)
+
+    model_config = ConfigDict(extra="ignore")
 
 
 class Preferences(BaseModel):

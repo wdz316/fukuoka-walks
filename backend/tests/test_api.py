@@ -185,3 +185,130 @@ def test_recommend_carries_places_cost_and_japanese_reasons(
     for item in data:
         assert "Good fit" not in (item["reason"] or "")
         assert "Novel" not in (item["reason"] or "")
+
+
+def test_create_and_list_and_delete_visit(client: TestClient) -> None:
+    device = "footprint-dev"
+    headers = {"X-Device-Id": device}
+    created = client.post(
+        "/api/visits",
+        json={"destination_id": 5, "attraction_name": "大濠公園"},
+        headers=headers,
+    )
+    assert created.status_code == 201
+    visit = created.json()
+    assert visit["id"] > 0
+    assert visit["device_id"] == device
+    assert visit["destination_id"] == 5
+    assert visit["attraction_name"] == "大濠公園"
+    assert visit["visited_at"]
+
+    listing = client.get("/api/visits", headers=headers)
+    assert listing.status_code == 200
+    assert any(v["id"] == visit["id"] for v in listing.json())
+
+    # different device scope should not see the visit
+    other = client.get("/api/visits", headers={"X-Device-Id": "other-fp"})
+    assert all(v["id"] != visit["id"] for v in other.json())
+
+    deleted = client.delete(f"/api/visits/{visit['id']}", headers=headers)
+    assert deleted.status_code == 204
+
+    after = client.get("/api/visits", headers=headers)
+    assert all(v["id"] != visit["id"] for v in after.json())
+
+
+def test_visits_scope_via_query_device_id(client: TestClient) -> None:
+    created = client.post(
+        "/api/visits?device_id=q-dev", json={"attraction_name": "福岡タワー"}
+    )
+    assert created.status_code == 201
+    assert created.json()["device_id"] == "q-dev"
+
+    owned = client.get("/api/visits?device_id=q-dev")
+    assert any(v["attraction_name"] == "福岡タワー" for v in owned.json())
+
+    scoped_away = client.get("/api/visits?device_id=other-q")
+    assert all(v["attraction_name"] != "福岡タワー" for v in scoped_away.json())
+
+
+def test_delete_visit_not_found_or_not_owned(client: TestClient) -> None:
+    device = "fp-owner"
+    headers = {"X-Device-Id": device}
+    created = client.post("/api/visits", json={"attraction_name": "太宰府天満宮"}, headers=headers)
+    assert created.status_code == 201
+    visit_id = created.json()["id"]
+
+    not_owned = client.delete(f"/api/visits/{visit_id}", headers={"X-Device-Id": "someone-else"})
+    assert not_owned.status_code == 404
+    assert client.delete("/api/visits/999999", headers=headers).status_code == 404
+
+    # the owner can still delete it
+    assert client.delete(f"/api/visits/{visit_id}", headers=headers).status_code == 204
+
+
+def test_complete_trip_marks_done_and_creates_visits_idempotently(client: TestClient) -> None:
+    device = "trip-dev"
+    headers = {"X-Device-Id": device}
+    created = client.post(
+        "/api/trips",
+        json={
+            "title": "福冈市内一日游",
+            "start_date": "2026-09-10",
+            "end_date": "2026-09-10",
+            "destination_id": 3,
+        },
+        headers=headers,
+    )
+    assert created.status_code == 201
+    trip = created.json()
+    assert trip["status"] == "planned"
+
+    stops = ["大濠公園", "櫛田神社", "太宰府天満宮"]
+    done = client.post(f"/api/trips/{trip['id']}/complete", json={"stops": stops}, headers=headers)
+    assert done.status_code == 200
+    assert done.json()["status"] == "done"
+
+    visits = client.get("/api/visits", headers=headers).json()
+    names = {v["attraction_name"] for v in visits}
+    assert set(stops) <= names
+    assert all(v["destination_id"] == trip["destination_id"] for v in visits)
+
+    # re-completing with the same stops is idempotent: no duplicate visits
+    again = client.post(f"/api/trips/{trip['id']}/complete", json={"stops": stops}, headers=headers)
+    assert again.status_code == 200
+    assert again.json()["status"] == "done"
+    after = client.get("/api/visits", headers=headers).json()
+    assert len(after) == len(visits)
+    for name in stops:
+        assert sum(1 for v in after if v["attraction_name"] == name) == 1
+
+
+def test_complete_trip_device_scoped_and_missing_trip(client: TestClient) -> None:
+    trip = client.post(
+        "/api/trips",
+        json={"title": "秘密行程", "start_date": "2026-09-10", "end_date": "2026-09-10"},
+    ).json()
+    other_device = client.post(
+        f"/api/trips/{trip['id']}/complete",
+        json={"stops": ["A"]},
+        headers={"X-Device-Id": "whoami"},
+    )
+    assert other_device.status_code == 404
+    assert client.post("/api/trips/999999/complete", json={"stops": ["A"]}).status_code == 404
+
+
+def test_list_trips_returns_status(client: TestClient) -> None:
+    device = "status-dev"
+    headers = {"X-Device-Id": device}
+    created = client.post(
+        "/api/trips",
+        json={"title": "天神散策", "start_date": "2026-09-12", "end_date": "2026-09-13"},
+        headers=headers,
+    ).json()
+    assert created["status"] == "planned"
+
+    listing = client.get("/api/trips", headers=headers)
+    assert listing.status_code == 200
+    listed = next(t for t in listing.json() if t["id"] == created["id"])
+    assert listed["status"] == "planned"

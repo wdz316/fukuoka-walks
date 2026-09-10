@@ -19,6 +19,8 @@ tags:
     description: Destination catalogue lookups
   - name: Trips
     description: Trip lifecycle management and export
+  - name: Visits
+    description: Visited attractions (足迹) and trip completion
   - name: Recommendations
     description: Destination recommendation engine
   - name: Preferences
@@ -131,6 +133,8 @@ paths:
         - Trips
       summary: Create a new trip
       operationId: createTrip
+      parameters:
+        - $ref: "#/components/parameters/XDeviceId"
       requestBody:
         required: true
         content:
@@ -151,6 +155,8 @@ paths:
         - Trips
       summary: List all trips
       operationId: listTrips
+      parameters:
+        - $ref: "#/components/parameters/XDeviceId"
       responses:
         "200":
           description: List of trips
@@ -175,6 +181,95 @@ paths:
       responses:
         "204":
           description: Trip deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/trips/{id}/complete:
+    post:
+      tags:
+        - Trips
+      summary: Mark a trip as done and record its stops as visits
+      operationId: completeTrip
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TripCompleteIn"
+      responses:
+        "200":
+          description: Trip marked as done (visits upserted idempotently)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Trip"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/visits:
+    get:
+      tags:
+        - Visits
+      summary: List visited attractions for the current device
+      operationId: listVisits
+      parameters:
+        - $ref: "#/components/parameters/XDeviceId"
+        - $ref: "#/components/parameters/DeviceQuery"
+      responses:
+        "200":
+          description: List of visits
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Visit"
+    post:
+      tags:
+        - Visits
+      summary: Record a visited attraction for the current device
+      operationId: createVisit
+      parameters:
+        - $ref: "#/components/parameters/XDeviceId"
+        - $ref: "#/components/parameters/DeviceQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VisitIn"
+      responses:
+        "201":
+          description: Visit recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Visit"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/visits/{id}:
+    delete:
+      tags:
+        - Visits
+      summary: Delete a visited attraction by id (own-device only)
+      operationId: deleteVisit
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: "#/components/parameters/XDeviceId"
+        - $ref: "#/components/parameters/DeviceQuery"
+      responses:
+        "204":
+          description: Visit deleted
         "404":
           $ref: "#/components/responses/NotFound"
   /api/trips/{id}/export:
@@ -343,6 +438,13 @@ components:
           description: Optional linked destination from the catalogue
         notes:
           type: string
+        status:
+          type: string
+          enum:
+            - planned
+            - done
+          default: planned
+          description: Trip stage (planned until completed)
         created_at:
           type: string
           format: date-time
@@ -426,6 +528,56 @@ components:
             - rule
             - openai
           description: Preferred AI provider for /api/recommend/ai
+    Visit:
+      type: object
+      required:
+        - id
+        - device_id
+        - attraction_name
+        - visited_at
+      properties:
+        id:
+          type: integer
+          readOnly: true
+          description: Unique visit id (server-assigned)
+        device_id:
+          type: string
+          description: Device that recorded the visit
+        destination_id:
+          type: integer
+          description: Optional linked destination from the catalogue
+        attraction_name:
+          type: string
+          description: Name of the visited attraction
+        visited_at:
+          type: string
+          format: date-time
+          description: When the attraction was visited
+    VisitIn:
+      type: object
+      required:
+        - attraction_name
+      properties:
+        destination_id:
+          type: integer
+          description: Optional linked destination from the catalogue
+        attraction_name:
+          type: string
+          description: Name of the visited attraction
+        visited_at:
+          type: string
+          format: date-time
+          description: When the attraction was visited (defaults to now)
+    TripCompleteIn:
+      type: object
+      required:
+        - stops
+      properties:
+        stops:
+          type: array
+          items:
+            type: string
+          description: Names of attractions visited on the trip (deduplicated)
     Error:
       type: object
       required:
@@ -434,6 +586,21 @@ components:
         detail:
           type: string
           description: Human-readable error message
+  parameters:
+    XDeviceId:
+      name: X-Device-Id
+      in: header
+      required: false
+      description: Client device identifier used to scope visits and trips
+      schema:
+        type: string
+    DeviceQuery:
+      name: device_id
+      in: query
+      required: false
+      description: Alternative to the X-Device-Id header for scoping visits
+      schema:
+        type: string
   responses:
     ValidationError:
       description: Request validation failed

@@ -93,6 +93,7 @@ def _serialize(t: Trip) -> dict:
         "destination_id": t.destination_id,
         "notes": t.notes,
         "budget": t.budget,
+        "status": t.status,
         "created_at": t.created_at.isoformat() if t.created_at else None,
         "updated_at": t.updated_at.isoformat() if t.updated_at else None,
     }

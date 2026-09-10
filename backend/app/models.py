@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import Date, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -45,6 +45,7 @@ class Trip(Base):
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     device_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="planned")
     created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
 
@@ -58,3 +59,20 @@ class Preference(Base):
     category: Mapped[str] = mapped_column(String(64), nullable=False)
     value: Mapped[str] = mapped_column(String(255), nullable=False)
     weight: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
+class Visit(Base):
+    """A single attraction the user visited on their trip (足迹)."""
+
+    __tablename__ = "visits"
+    __table_args__ = (
+        Index("ix_visits_device_attraction", "device_id", "attraction_name"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    device_id: Mapped[str] = mapped_column(String(128), nullable=False, default="default")
+    destination_id: Mapped[int | None] = mapped_column(
+        ForeignKey("destinations.id"), nullable=True
+    )
+    attraction_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    visited_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
