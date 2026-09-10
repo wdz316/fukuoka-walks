@@ -44,6 +44,61 @@ export interface RouteOptions {
   includeHotels?: boolean;
 }
 
+export interface RouteLeg {
+  from: string;
+  to: string;
+  /** 'walk' under 1.2km, otherwise transit. */
+  mode: "walk" | "transit";
+  minutes: number;
+}
+
+function haversineKm(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): number {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const s1 = Math.sin(dLat / 2);
+  const s2 = Math.sin(dLng / 2);
+  const h =
+    s1 * s1 +
+    Math.cos((a.lat * Math.PI) / 180) *
+      Math.cos((b.lat * Math.PI) / 180) *
+      s2 *
+      s2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+/**
+ * Order + transport for each leg between consecutive route points.
+ * Walk (<1.2km, 4km/h) else transit (15km/h + 5min wait), minutes rounded up.
+ */
+export function planLegs(
+  points: readonly { name: string; lat: number; lng: number }[],
+): RouteLeg[] {
+  const legs: RouteLeg[] = [];
+  for (let i = 0; i + 1 < points.length; i++) {
+    const km = haversineKm(points[i], points[i + 1]);
+    if (km < 1.2) {
+      legs.push({
+        from: points[i].name,
+        to: points[i + 1].name,
+        mode: "walk",
+        minutes: Math.max(1, Math.ceil((km / 4) * 60)),
+      });
+    } else {
+      legs.push({
+        from: points[i].name,
+        to: points[i + 1].name,
+        mode: "transit",
+        minutes: Math.ceil((km / 15) * 60) + 5,
+      });
+    }
+  }
+  return legs;
+}
+
 /**
  * Build a timed model route from a destination's attractions/hotels.
  * Attractions are grouped by their `day` field and assigned 午前/午後/夕方

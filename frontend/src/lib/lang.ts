@@ -142,6 +142,11 @@ const zh: Dict = {
   'plan.visitNewOnly': '只去新的',
   'plan.mapHint': '点标记看详情，进出路线点弹窗里按钮，拖动可调位置',
   'plan.mapEmptyHint': '搜索后，所选目的地的地图和路线显示在这里',
+  'plan.walkMode': '徒步',
+  'plan.transitMode': '电车巴士',
+  'plan.minutes': '{n}分钟',
+  'plan.nextStop': '下一站：{to}（{detail}）',
+  'plan.lastStop': '终点',
 
   // Recommend — messages
   'plan.msgNoMatch': '未找到符合「{summary}」的旅行目的地。',
@@ -327,6 +332,11 @@ const ja: Dict = {
   'plan.visitNewOnly': '新規のみ',
   'plan.mapHint': 'マーカーをタップで詳細、ルート出入りはポップアップのボタン、ドラッグで位置調整',
   'plan.mapEmptyHint': '検索後、選んだ目的地の地図とルートがここに表示されます',
+  'plan.walkMode': '徒歩',
+  'plan.transitMode': '電車・バス',
+  'plan.minutes': '{n}分',
+  'plan.nextStop': '次：{to}（{detail}）',
+  'plan.lastStop': '終点',
 
   // Recommend — messages
   'plan.msgNoMatch': '「{summary}」に合う旅行先が見つかりませんでした。',

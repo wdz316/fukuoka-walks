@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css'
 import { useEffect } from 'react'
 import { coordinateFor, type LatLng } from '../lib/coordinates'
 import { useLang } from '../lib/lang'
+import { planLegs } from '../lib/routePlan'
 
 const DEFAULT_CENTER: LatLng = { lat: 20, lng: 30 }
 const DEFAULT_ZOOM = 2
@@ -22,7 +23,7 @@ const icon = L.icon({
 const VISITED_COLOR = '#d97706'
 const NOT_VISITED_COLOR = '#94a3b8'
 
-function pointIcon(visited: boolean, included = true): L.DivIcon {
+function orderedIcon(order: number, visited: boolean, included = true): L.DivIcon {
   if (!included) {
     return L.divIcon({
       className: '',
@@ -34,10 +35,10 @@ function pointIcon(visited: boolean, included = true): L.DivIcon {
   }
   return L.divIcon({
     className: '',
-    html: `<div style="width:16px;height:16px;border-radius:50%;background:${visited ? VISITED_COLOR : NOT_VISITED_COLOR};border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.35)"></div>`,
-    iconSize: [16, 16],
-    iconAnchor: [8, 8],
-    popupAnchor: [0, -10],
+    html: `<div style="min-width:22px;height:22px;border-radius:11px;background:${visited ? VISITED_COLOR : '#2563eb'};color:#fff;font-size:12px;font-weight:700;line-height:22px;text-align:center;padding:0 4px;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.35)">${order}</div>`,
+    iconSize: [22, 22],
+    iconAnchor: [11, 11],
+    popupAnchor: [0, -12],
   })
 }
 
@@ -78,9 +79,11 @@ export default function DestinationMap({ name, points = [], onTogglePoint, onMov
   if (!pos) return null
   const center: LatLng = { lat: pos.lat, lng: pos.lng }
   const interactive = isInteractive({ onTogglePoint, onMovePoint })
-  const routeLine: [number, number][] = points
-    .filter((p) => p.included !== false)
-    .map((p) => [p.lat, p.lng])
+  const includedPoints = points.filter((p) => p.included !== false)
+  const routeLine: [number, number][] = includedPoints.map((p) => [p.lat, p.lng])
+  const legs = planLegs(includedPoints)
+  const legByFrom = new Map(legs.map((l) => [l.from, l]))
+  const orderOf = new Map(includedPoints.map((p, i) => [p.name, i + 1]))
 
   return (
     <div className="relative h-full w-full" style={{ minHeight: 300 }}>
@@ -103,11 +106,13 @@ export default function DestinationMap({ name, points = [], onTogglePoint, onMov
         )}
         {points.map((p) => {
           const included = p.included !== false
+          const order = orderOf.get(p.name) ?? 0
+          const leg = legByFrom.get(p.name)
           return (
             <Marker
               key={p.name}
               position={[p.lat, p.lng]}
-              icon={pointIcon(p.visited ?? false, included)}
+              icon={orderedIcon(order, p.visited ?? false, included)}
               draggable={interactive}
               eventHandlers={{
                 dragend: (e) => {
@@ -119,10 +124,25 @@ export default function DestinationMap({ name, points = [], onTogglePoint, onMov
               <Popup>
                 <div>
                   <div>
-                    {p.name}
+                    {included ? `${order}. ` : ''}{p.name}
                   </div>
                   <div>
                     {p.visited ? t('visit.visited') : t('visit.notVisited')}
+                    {included && leg && (
+                      <>
+                        <br />
+                        {t('plan.nextStop', {
+                          to: leg.to,
+                          detail: `${t(leg.mode === 'walk' ? 'plan.walkMode' : 'plan.transitMode')} ${t('plan.minutes', { n: leg.minutes })}`,
+                        })}
+                      </>
+                    )}
+                    {included && !leg && (
+                      <>
+                        <br />
+                        {t('plan.lastStop')}
+                      </>
+                    )}
                     {!included && (
                       <>
                         <br />

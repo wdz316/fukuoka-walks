@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildRoute, mergeCustomPlaces } from './routePlan'
+import { buildRoute, mergeCustomPlaces, planLegs } from './routePlan'
 import type { PlaceInfo } from './types'
 
 const kushida: PlaceInfo = { name: '櫛田神社', day: 1, url: 'https://example.com/kushida' }
@@ -57,8 +57,7 @@ describe('buildRoute', () => {
     expect(days[0].stops.some((s) => s.kind === 'hotel')).toBe(true)
   })
 
-  it('caps main stops at 3 per day and parks overflow as extras', () => {
-    const many = [1, 2, 3, 4, 5].map((i) => ({ name: ` spot${i} `.trim(), day: 1 }))
+  it('caps main stops at 3 per day and parks overflow as extras', () => {    const many = [1, 2, 3, 4, 5].map((i) => ({ name: ` spot${i} `.trim(), day: 1 }))
     const days = buildRoute(many, [], { days: 2 })
     expect(days).toHaveLength(1)
     expect(days[0].stops.map((s) => s.timeLabel)).toEqual(['午前', '午後', '夕方'])
@@ -101,5 +100,25 @@ describe('mergeCustomPlaces', () => {
     )
     expect(merged[0].stops.map((s) => s.name)).toEqual(['A', 'B'])
     expect(merged[0].stops.map((s) => s.note)).toEqual([undefined, 'メモ'])
+  })
+})
+
+describe('planLegs', () => {
+  const a = { name: 'A', lat: 33.5957, lng: 130.4146 }
+  const near = { name: 'B', lat: 33.5967, lng: 130.4156 }
+  const far = { name: 'C', lat: 33.5315, lng: 130.5357 }
+
+  it('walks short legs and transits long ones with minutes', () => {
+    const legs = planLegs([a, near, far])
+    expect(legs).toHaveLength(2)
+    expect(legs[0]).toMatchObject({ from: 'A', to: 'B', mode: 'walk' })
+    expect(legs[0].minutes).toBeGreaterThanOrEqual(1)
+    expect(legs[1]).toMatchObject({ from: 'B', to: 'C', mode: 'transit' })
+    expect(legs[1].minutes).toBeGreaterThan(legs[0].minutes)
+  })
+
+  it('returns empty for fewer than two points', () => {
+    expect(planLegs([])).toEqual([])
+    expect(planLegs([a])).toEqual([])
   })
 })

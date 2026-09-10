@@ -333,20 +333,34 @@ export default function PlanPage() {
   )
   const mapPoints: MapPoint[] = useMemo(() => {
     if (!selectedDest) return []
-    const spots = [...(selectedDest.attractions ?? []), ...(selectedDest.hotels ?? [])]
-    return spots
-      .filter((p) => typeof p.lat === 'number' && typeof p.lng === 'number')
-      .map((p) => {
-        const override = coordOverrides[p.name]
-        return {
-          name: p.name,
-          lat: override?.lat ?? (p.lat as number),
-          lng: override?.lng ?? (p.lng as number),
-          visited: visitedNames.has(p.name),
-          included: !excludedStops.includes(p.name),
-        }
-      })
-  }, [selectedDest, visitedNames, excludedStops, coordOverrides])
+    // Coordinate lookup from catalogue data (+ dragged overrides).
+    const coords = new Map<string, { lat: number; lng: number }>()
+    for (const p of [...(selectedDest.attractions ?? []), ...(selectedDest.hotels ?? [])]) {
+      if (typeof p.lat === 'number' && typeof p.lng === 'number') {
+        coords.set(p.name, { lat: p.lat, lng: p.lng })
+      }
+    }
+    for (const [name, ll] of Object.entries(coordOverrides)) coords.set(name, ll)
+    // Route order (days, then extras), excluded stops kept as hollow markers.
+    const seen = new Set<string>()
+    const pts: MapPoint[] = []
+    for (const d of mergedRoute) {
+      for (const s of [...d.stops, ...d.extras]) {
+        if (seen.has(s.name)) continue
+        seen.add(s.name)
+        const c = coords.get(s.name)
+        if (!c) continue
+        pts.push({
+          name: s.name,
+          lat: c.lat,
+          lng: c.lng,
+          visited: visitedNames.has(s.name),
+          included: !excludedStops.includes(s.name),
+        })
+      }
+    }
+    return pts
+  }, [selectedDest, mergedRoute, visitedNames, excludedStops, coordOverrides])
   const tripCompleted = savedTrip?.status === 'completed'
 
   return (
