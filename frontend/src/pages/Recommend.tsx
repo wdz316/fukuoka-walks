@@ -12,14 +12,8 @@ import {
 import { collectVisitedDestinationIds, destinationNameMatches, filterNewDestinations, isSameCity, type VisitFilter } from '../lib/places'
 import {
   SAME_CITY_PREF_OPTIONS,
-  STAY_LENGTHS,
-  WALK_TYPES,
-  sameCityDurationDays,
-  sameCityHolidayType,
   sameCityInterests,
   type SameCityPref,
-  type StayLength,
-  type WalkType,
 } from '../lib/sameCity'
 import { countryLabel, regionLabel, seasonLabel } from '../lib/i18n'
 import { displayName } from '../lib/placeNames'
@@ -33,9 +27,7 @@ interface FormState {
   destination: string
   directDestination: string
   directDate: string
-  walkType: WalkType
   sameCityPrefs: SameCityPref[]
-  stayDays: StayLength
 }
 
 const emptyForm: FormState = {
@@ -45,9 +37,7 @@ const emptyForm: FormState = {
   destination: '',
   directDestination: '',
   directDate: '',
-  walkType: 'city',
   sameCityPrefs: [],
-  stayDays: 'one',
 }
 
 function toISO(d: Date): string {
@@ -55,12 +45,6 @@ function toISO(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0')
   const day = String(d.getDate()).padStart(2, '0')
   return `${y}-${m}-${day}`
-}
-
-function addDays(iso: string, days: number): string {
-  const d = new Date(`${iso}T00:00:00`)
-  d.setDate(d.getDate() + days)
-  return toISO(d)
 }
 
 function dayCount(start: string, end: string): number {
@@ -146,12 +130,16 @@ export default function PlanPage() {
   const [message, setMessage] = useState<string | null>(null)
   const [savedTrip, setSavedTrip] = useState<Trip | null>(null)
   const [planDates, setPlanDates] = useState<{ start: string; end: string } | null>(null)
-  // Panel tab: 'auto' follows same-city detection, manual picks stick until
-  // 出発地/目的地 are edited again.
-  const [modeTab, setModeTab] = useState<'auto' | 'normal' | 'city'>('auto')
   // 足迹 (check-in) state: visited spots for the selected destination, plus
   // user-added 自定地点 which only live on the current route (notes on save).
   const [visits, setVisits] = useState<Visit[]>([])
+  const sameCity = useMemo(
+    () =>
+      form.origin.trim().length > 0 &&
+      form.destination.trim().length > 0 &&
+      isSameCity(form.origin, form.destination),
+    [form.origin, form.destination],
+  )
   const [customPlaces, setCustomPlaces] = useState<CustomPlace[]>([])
   const [customName, setCustomName] = useState('')
   const [customNote, setCustomNote] = useState('')
@@ -227,30 +215,6 @@ export default function PlanPage() {
     }))
   }
 
-  const sameCity = useMemo(
-    () =>
-      form.origin.trim().length > 0 &&
-      form.destination.trim().length > 0 &&
-      isSameCity(form.origin, form.destination),
-    [form.origin, form.destination],
-  )
-
-  const cityMode = modeTab === 'auto' ? sameCity : modeTab === 'city'
-
-  function updatePlace(key: 'origin' | 'destination', value: string) {
-    const next = { ...form, [key]: value }
-    setForm(next)
-    // Auto-switch TO city mode only when both fields match. Never yank the
-    // user away mid-typing: manual tab picks stick until a real match appears.
-    if (
-      next.origin.trim().length > 0 &&
-      next.destination.trim().length > 0 &&
-      isSameCity(next.origin, next.destination)
-    ) {
-      setModeTab('auto')
-    }
-  }
-
   async function runRecommend(req: RecommendRequest, summary: string, pinQuery?: string) {
     setLoading(true)
     setError(null)
@@ -302,40 +266,36 @@ export default function PlanPage() {
   }
 
   function buildRequest(): RecommendRequest {
-    return {
-      start_date: form.startDate,
-      end_date: form.endDate,
-    }
-  }
-
-  async function runSameCitySearch() {
     const start = form.startDate
-    if (!start) {
-      setMessage(t('plan.msgSelectStartDate'))
-      return
+    const end = form.endDate || start
+    const origin = form.origin.trim()
+    const destination = form.destination.trim()
+    const same =
+      origin.length > 0 && destination.length > 0 && isSameCity(origin, destination)
+    if (same) {
+      // 同城：市内散策 interests + custom 假期，日数由起止日决定
+      return {
+        start_date: start,
+        end_date: end,
+        origin,
+        interests: sameCityInterests('city', form.sameCityPrefs),
+        holiday_type: 'custom',
+      }
     }
-    const days = sameCityDurationDays(form.stayDays)
-    const end = days > 0 ? addDays(start, days) : start
-    const req: RecommendRequest = {
+    return {
       start_date: start,
       end_date: end,
-      origin: form.origin.trim(),
-      interests: sameCityInterests(form.walkType, form.sameCityPrefs),
-      holiday_type: sameCityHolidayType(form.walkType),
+      origin: origin || undefined,
     }
-    await runRecommend(req, t('plan.sameCitySummary', { origin: form.origin.trim() }))
   }
 
   function handleConditionSubmit(e: FormEvent) {
     e.preventDefault()
-    if (cityMode) {
-      void runSameCitySearch()
-      return
-    }
     const req = buildRequest()
     const visitNote = visitFilter === 'new' ? t('plan.visitNewOnly') : t('plan.visitAny')
     const parts = [form.startDate, form.endDate, visitNote].filter(Boolean)
-    void runRecommend(req, parts.join(' / '), cityMode ? undefined : form.destination.trim() || undefined)
+    const pin = form.destination.trim() || undefined
+    void runRecommend(req, parts.join(' / '), pin)
   }
 
   async function handleDirectSubmit(e: FormEvent) {
@@ -518,199 +478,96 @@ export default function PlanPage() {
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">{t('plan.searchByConditions')}</h2>
           <form onSubmit={handleConditionSubmit} className="mt-4 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <label className="block text-sm">
+                <span className="text-slate-600">{t('plan.origin')}</span>
+                <input
+                  type="text"
+                  value={form.origin}
+                      onChange={(e) => update('origin', e.target.value)}
+                  placeholder="例: 福岡"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="text-slate-600">{t('plan.destination')}</span>
+                <input
+                  type="text"
+                  value={form.destination}
+                      onChange={(e) => update('destination', e.target.value)}
+                  placeholder="例: 福岡"
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                />
+              </label>
+            </div>
+
+            {sameCity ? (
+              <div className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
+                {t('plan.sameCityMode', { origin: form.origin, destination: form.destination })}
+              </div>
+            ) : (
+              <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">
+                {t('plan.sameCityHint')}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-4">
+              <label className="block text-sm">
+                <span className="text-slate-600">{t('plan.startDate')}</span>
+                <input
+                  type="date"
+                  required
+                  value={form.startDate}
+                  onChange={(e) => update('startDate', e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="text-slate-600">{t('plan.endDate')}</span>
+                <input
+                  type="date"
+                  required
+                  value={form.endDate}
+                  onChange={(e) => update('endDate', e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                />
+              </label>
+            </div>
+
             <div>
-              <div className="flex gap-2 rounded-lg bg-slate-100 p-1">
-                <button
-                  type="button"
-                  onClick={() => setModeTab('normal')}
-                  className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                    !cityMode ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
-                  }`}
-                >
-                  {t('plan.normalSearch')}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModeTab('city')}
-                  className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                    cityMode ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'
-                  }`}
-                >
-                  {t('plan.sameCityPlan')}
-                </button>
+              <span className="text-sm text-slate-600">{t('plan.preferences')}</span>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {SAME_CITY_PREF_OPTIONS.map((p) => (
+                  <Chip
+                    key={p.value}
+                    active={form.sameCityPrefs.includes(p.value)}
+                    onClick={() => togglePref(p.value)}
+                  >
+                    {t(p.label)}
+                  </Chip>
+                ))}
               </div>
             </div>
 
-            {cityMode ? (
-              <>
-                <div className="grid grid-cols-2 gap-4">
-                  <label className="block text-sm">
-                    <span className="text-slate-600">{t('plan.origin')}</span>
-                    <input
-                      type="text"
-                      value={form.origin}
-                      onChange={(e) => updatePlace('origin', e.target.value)}
-                      placeholder="例: 福岡"
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                    />
-                  </label>
-                  <label className="block text-sm">
-                    <span className="text-slate-600">{t('plan.destination')}</span>
-                    <input
-                      type="text"
-                      value={form.destination}
-                      onChange={(e) => updatePlace('destination', e.target.value)}
-                      placeholder="例: 福岡"
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                    />
-                  </label>
-                </div>
+            <div>
+              <span className="text-sm text-slate-600">{t('plan.visitFilter')}</span>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Chip active={visitFilter === 'any'} onClick={() => setVisitFilter('any')}>
+                  {t('plan.visitAny')}
+                </Chip>
+                <Chip active={visitFilter === 'new'} onClick={() => setVisitFilter('new')}>
+                  {t('plan.visitNewOnly')}
+                </Chip>
+              </div>
+            </div>
 
-                <label className="block text-sm">
-                  <span className="text-slate-600">{t('plan.startDate')}</span>
-                  <input
-                    type="date"
-                    required
-                    value={form.startDate}
-                    onChange={(e) => update('startDate', e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                  />
-                </label>
-
-                {sameCity ? (
-                  <div className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
-                    {t('plan.sameCityMode', { origin: form.origin, destination: form.destination })}
-                  </div>
-                ) : (
-                  <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">
-                    {t('plan.sameCityHint')}
-                  </div>
-                )}
-
-                <div>
-                  <span className="text-sm text-slate-600">{t('plan.howToSpend')}</span>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {WALK_TYPES.map((w) => (
-                      <Chip
-                        key={w.value}
-                        active={form.walkType === w.value}
-                        onClick={() => update('walkType', w.value)}
-                      >
-                        {t(w.label)}
-                      </Chip>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <span className="text-sm text-slate-600">{t('plan.preferences')}</span>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {SAME_CITY_PREF_OPTIONS.map((p) => (
-                      <Chip
-                        key={p.value}
-                        active={form.sameCityPrefs.includes(p.value)}
-                        onClick={() => togglePref(p.value)}
-                      >
-                        {t(p.label)}
-                      </Chip>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <span className="text-sm text-slate-600">{t('plan.stayDuration')}</span>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {STAY_LENGTHS.map((s) => (
-                      <Chip
-                        key={s.value}
-                        active={form.stayDays === s.value}
-                        onClick={() => update('stayDays', s.value)}
-                      >
-                        {t(s.label)}
-                      </Chip>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <span className="text-sm text-slate-600">{t('plan.visitFilter')}</span>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <Chip active={visitFilter === 'any'} onClick={() => setVisitFilter('any')}>
-                      {t('plan.visitAny')}
-                    </Chip>
-                    <Chip active={visitFilter === 'new'} onClick={() => setVisitFilter('new')}>
-                      {t('plan.visitNewOnly')}
-                    </Chip>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full rounded-lg bg-rose-600 px-4 py-3 font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
-                >
-                  {loading ? t('plan.searching') : t('plan.searchSameCity')}
-                </button>
-              </>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-4">
-                  <label className="block text-sm">
-                    <span className="text-slate-600">{t('plan.destination')}</span>
-                    <input
-                      type="text"
-                      value={form.destination}
-                      onChange={(e) => updatePlace('destination', e.target.value)}
-                      placeholder="例: 福岡"
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                    />
-                  </label>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <label className="block text-sm">
-                    <span className="text-slate-600">{t('plan.startDate')}</span>
-                    <input
-                      type="date"
-                      required
-                      value={form.startDate}
-                      onChange={(e) => update('startDate', e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                    />
-                  </label>
-                  <label className="block text-sm">
-                    <span className="text-slate-600">{t('plan.endDate')}</span>
-                    <input
-                      type="date"
-                      required
-                      value={form.endDate}
-                      onChange={(e) => update('endDate', e.target.value)}
-                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                    />
-                  </label>
-                </div>
-
-                <div>
-                  <span className="text-sm text-slate-600">{t('plan.visitFilter')}</span>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <Chip active={visitFilter === 'any'} onClick={() => setVisitFilter('any')}>
-                      {t('plan.visitAny')}
-                    </Chip>
-                    <Chip active={visitFilter === 'new'} onClick={() => setVisitFilter('new')}>
-                      {t('plan.visitNewOnly')}
-                    </Chip>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full rounded-lg bg-rose-600 px-4 py-3 font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
-                >
-                  {loading ? t('plan.searching') : t('plan.getRecommendations')}
-                </button>
-              </>
-            )}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-lg bg-rose-600 px-4 py-3 font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
+            >
+              {loading ? t('plan.searching') : t('plan.getRecommendations')}
+            </button>
           </form>
         </section>
 
