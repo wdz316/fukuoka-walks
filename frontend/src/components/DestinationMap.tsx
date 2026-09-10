@@ -10,17 +10,6 @@ import { planLegs } from '../lib/routePlan'
 const DEFAULT_CENTER: LatLng = { lat: 20, lng: 30 }
 const DEFAULT_ZOOM = 2
 
-const icon = L.icon({
-  iconUrl:
-    'data:image/svg+xml;base64,' +
-    btoa(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="25" height="41" viewBox="0 0 25 41"><path fill="#e11d48" d="M12.5 0C5.6 0 0 5.6 0 12.5 0 21.9 12.5 41 12.5 41S25 21.9 25 12.5C25 5.6 19.4 0 12.5 0z"/><circle cx="12.5" cy="12.5" r="5" fill="#fff"/></svg>`,
-    ),
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-})
-
 const VISITED_COLOR = '#d97706'
 const NOT_VISITED_COLOR = '#94a3b8'
 
@@ -148,9 +137,6 @@ function legDetail(t: (key: string, params?: Record<string, string | number>) =>
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MoveTo position={center} />
-        <Marker position={[center.lat, center.lng]} icon={icon}>
-          <Popup>{name}</Popup>
-        </Marker>
         {legs.map((leg) => {
           const a = includedPoints.find((p) => p.name === leg.from)
           const b = includedPoints.find((p) => p.name === leg.to)
@@ -285,7 +271,7 @@ function legDetail(t: (key: string, params?: Record<string, string | number>) =>
           </div>
           <div className="mt-1 flex items-center gap-2">
             <span
-              className="inline-block h-0 w-4 border-t-2 border-dashed"
+              className="inline-block h-0 w-4 border-t-2"
               style={{ borderColor: TRANSIT_COLOR }}
             />
             <span>{t('plan.transitMode')}</span>
