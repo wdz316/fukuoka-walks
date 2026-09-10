@@ -667,24 +667,6 @@ export default function PlanPage() {
                   </label>
                 </div>
 
-                <div>
-                  <span className="text-sm text-slate-600">{t('plan.visitFilter')}</span>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <Chip
-                      active={visitFilter === 'any'}
-                      onClick={() => setVisitFilter('any')}
-                    >
-                      {t('plan.visitAny')}
-                    </Chip>
-                    <Chip
-                      active={visitFilter === 'new'}
-                      onClick={() => setVisitFilter('new')}
-                    >
-                      {t('plan.visitNewOnly')}
-                    </Chip>
-                  </div>
-                </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <label className="block text-sm">
                     <span className="text-slate-600">{t('plan.startDate')}</span>
