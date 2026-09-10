@@ -87,7 +87,7 @@ export default function DestinationMap({ name, points = [], onTogglePoint, onMov
       <MapContainer
         center={[center.lat, center.lng]}
         zoom={9}
-        scrollWheelZoom={false}
+        scrollWheelZoom
         className="h-full w-full"
       >
         <TileLayer
@@ -154,7 +154,7 @@ export default function DestinationMap({ name, points = [], onTogglePoint, onMov
         </div>
       )}
       {interactive && (
-        <div className="absolute left-3 top-3 z-[1000] max-w-[70%] rounded-md bg-slate-900/80 px-3 py-1.5 text-xs text-white shadow-md">
+        <div className="absolute left-1/2 top-3 z-[1000] max-w-[80%] -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-900/80 px-3 py-1.5 text-xs text-white shadow-md">
           {t('plan.mapHint')}
         </div>
       )}
