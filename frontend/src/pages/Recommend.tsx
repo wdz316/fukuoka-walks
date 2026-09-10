@@ -9,7 +9,8 @@ import {
   type Trip,
   type Visit,
 } from '../lib'
-import { collectVisitedDestinationIds, destinationNameMatches, filterNewDestinations, isSameCity, type VisitFilter } from '../lib/places'
+import { collectVisitedDestinationIds, type VisitFilter } from '../lib/places'
+import { rankResults } from '../lib/rankResults'
 import {
   SAME_CITY_PREF_OPTIONS,
   sameCityInterests,
@@ -23,28 +24,13 @@ import { useLang } from '../lib/lang'
 interface FormState {
   startDate: string
   endDate: string
-  origin: string
-  destination: string
-  directDestination: string
-  directDate: string
   sameCityPrefs: SameCityPref[]
 }
 
 const emptyForm: FormState = {
   startDate: '',
   endDate: '',
-  origin: '',
-  destination: '',
-  directDestination: '',
-  directDate: '',
   sameCityPrefs: [],
-}
-
-function toISO(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
 }
 
 function dayCount(start: string, end: string): number {
@@ -53,25 +39,8 @@ function dayCount(start: string, end: string): number {
   return Math.round((e - s) / 86_400_000) + 1
 }
 
-function nextSaturday(): string {
-  const now = new Date()
-  const daysUntilSat = ((6 - now.getDay() + 7) % 7) || 7
-  const sat = new Date(now)
-  sat.setDate(now.getDate() + daysUntilSat)
-  return toISO(sat)
-}
-
-function effectiveDirectDates(form: FormState): {
-  start: string
-  end: string
-  defaultsApplied: boolean
-} {
-  // No date given: assume a single day (next Saturday). A 2-day weekend
-  // default wrongly produced 2日目 + hotels for what users see as a day trip.
-  if (form.directDate) return { start: form.directDate, end: form.directDate, defaultsApplied: false }
-  const sat = nextSaturday()
-  return { start: sat, end: sat, defaultsApplied: true }
-}
+/** Scope locked: Fukuoka city walks only (per project decision). */
+const FIXED_DESTINATION = 'Fukuoka'
 
 function estimatedBudget(dest: Destination, days: number): number | null {
   if (!days || days < 1) return null
@@ -132,13 +101,6 @@ export default function PlanPage() {
   // 足迹 (check-in) state: visited spots for the selected destination, plus
   // user-added 自定地点 which only live on the current route (notes on save).
   const [visits, setVisits] = useState<Visit[]>([])
-  const sameCity = useMemo(
-    () =>
-      form.origin.trim().length > 0 &&
-      form.destination.trim().length > 0 &&
-      isSameCity(form.origin, form.destination),
-    [form.origin, form.destination],
-  )
   const [customPlaces, setCustomPlaces] = useState<CustomPlace[]>([])
   const [customName, setCustomName] = useState('')
   const [customNote, setCustomNote] = useState('')
@@ -214,7 +176,7 @@ export default function PlanPage() {
     }))
   }
 
-  async function runRecommend(req: RecommendRequest, summary: string, pinQuery?: string) {
+  async function runRecommend(req: RecommendRequest, summary: string) {
     setLoading(true)
     setError(null)
     setMessage(null)
@@ -229,34 +191,17 @@ export default function PlanPage() {
         setMessage(t('plan.msgNoMatch', { summary }))
         return
       }
-      // Pin an explicitly requested destination: when 目的地 is specified,
-      // it is the ONLY result. Everything else is noise.
-      let ranked = data
-      if (pinQuery) {
-        const idx = data.findIndex((r) => destinationNameMatches(r.destination.name, pinQuery))
-        if (idx >= 0) {
-          const [pinned] = data.splice(idx, 1)
-          pinned.reason = `${t('plan.pinnedPrefix')}${pinned.reason ?? ''}`
-          ranked = [pinned]
-        } else {
-          ranked = []
-        }
-      }
-      // 只去新的：drop already-visited destinations (pinned one always stays).
-      if (visitFilter === 'new') {
-        const pinned = pinQuery
-          ? ranked.filter((r) => destinationNameMatches(r.destination.name, pinQuery))
-          : []
-        const rest = filterNewDestinations(
-          ranked.filter((r) => !pinned.includes(r)),
-          visitedDestIds,
-        )
-        ranked = [...pinned, ...rest]
-      }
+      // 福岡固定：指定目的地永远是唯一结果（rankResults 内置验证）。
+      const ranked = rankResults(data, {
+        pinQuery: FIXED_DESTINATION,
+        pinnedPrefix: t('plan.pinnedPrefix'),
+        visitFilter,
+        visitedIds: visitedDestIds,
+      })
       setRecommendations(ranked)
       setSelected(ranked[0] ?? null)
-      if (pinQuery && ranked.length === 0) {
-        setMessage(t('plan.msgDestinationNotFound', { query: pinQuery }))
+      if (ranked.length === 0) {
+        setMessage(t('plan.msgDestinationNotFound', { query: FIXED_DESTINATION }))
       } else {
         setMessage(t('plan.msgFound', { summary, n: ranked.length }))
       }
@@ -271,24 +216,13 @@ export default function PlanPage() {
   function buildRequest(): RecommendRequest {
     const start = form.startDate
     const end = form.endDate || start
-    const origin = form.origin.trim()
-    const destination = form.destination.trim()
-    const same =
-      origin.length > 0 && destination.length > 0 && isSameCity(origin, destination)
-    if (same) {
-      // 同城：市内散策 interests + custom 假期，日数由起止日决定
-      return {
-        start_date: start,
-        end_date: end,
-        origin,
-        interests: sameCityInterests('city', form.sameCityPrefs),
-        holiday_type: 'custom',
-      }
-    }
+    // 福岡固定：市内散策 interests，日数由起止日决定
     return {
       start_date: start,
       end_date: end,
-      origin: origin || undefined,
+      origin: FIXED_DESTINATION,
+      interests: sameCityInterests('city', form.sameCityPrefs),
+      holiday_type: 'custom',
     }
   }
 
@@ -297,8 +231,7 @@ export default function PlanPage() {
     const req = buildRequest()
     const visitNote = visitFilter === 'new' ? t('plan.visitNewOnly') : t('plan.visitAny')
     const parts = [form.startDate, form.endDate, visitNote].filter(Boolean)
-    const pin = form.destination.trim() || undefined
-    void runRecommend(req, parts.join(' / '), pin)
+    void runRecommend(req, parts.join(' / '))
   }
 
   async function handleSave() {
@@ -307,9 +240,10 @@ export default function PlanPage() {
     setError(null)
     setMessage(null)
     try {
-      const plan = planDates ?? (form.startDate
-        ? { start: form.startDate, end: form.endDate || form.startDate }
-        : effectiveDirectDates(form))
+      const plan = planDates ?? {
+        start: form.startDate,
+        end: form.endDate || form.startDate,
+      }
       const trip: Trip = {
         title: t('plan.tripTitle', { name: displayName(selected.destination.name) }),
         start_date: plan.start,
@@ -434,38 +368,9 @@ export default function PlanPage() {
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">{t('plan.searchByConditions')}</h2>
           <form onSubmit={handleConditionSubmit} className="mt-4 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <label className="block text-sm">
-                <span className="text-slate-600">{t('plan.origin')}</span>
-                <input
-                  type="text"
-                  value={form.origin}
-                      onChange={(e) => update('origin', e.target.value)}
-                  placeholder="例: 福岡"
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="text-slate-600">{t('plan.destination')}</span>
-                <input
-                  type="text"
-                  value={form.destination}
-                      onChange={(e) => update('destination', e.target.value)}
-                  placeholder="例: 福岡"
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                />
-              </label>
+            <div className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
+              {t('plan.fixedCityMode', { city: displayName(FIXED_DESTINATION) })}
             </div>
-
-            {sameCity ? (
-              <div className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
-                {t('plan.sameCityMode', { origin: form.origin, destination: form.destination })}
-              </div>
-            ) : (
-              <div className="rounded-lg bg-slate-50 p-3 text-sm text-slate-500">
-                {t('plan.sameCityHint')}
-              </div>
-            )}
 
             <div className="grid grid-cols-2 gap-4">
               <label className="block text-sm">

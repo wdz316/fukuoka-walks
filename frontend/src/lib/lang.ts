@@ -113,6 +113,7 @@ const zh: Dict = {
   'plan.exportIcs': '导出ICS（日历）',
   'plan.selectDestination': '请选择旅行目的地',
   'plan.regionUnlimited': '・取消地区限定',
+  'plan.fixedCityMode': '本次只做{city}市内游',
 
   // Recommend — 足迹 (check-in / visited)
   'visit.trailMap': '足迹地图',
@@ -295,6 +296,7 @@ const ja: Dict = {
   'plan.exportIcs': 'ICS（カレンダー）で出力',
   'plan.selectDestination': '旅行先を選択してください',
   'plan.regionUnlimited': '・地域の絞り込みを外します',
+  'plan.fixedCityMode': '今回は{city}市内観光のみ',
 
   // Recommend — フットプリント (チェックイン)
   'visit.trailMap': 'フットプリントマップ',
