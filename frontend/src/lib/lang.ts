@@ -126,6 +126,8 @@ const zh: Dict = {
   'visit.saveFirst': '请先保存计划后再打卡。',
   'visit.visited': '去过',
   'visit.notVisited': '未去',
+  'visit.removeFromRoute': '移出路线',
+  'visit.addToRouteBtn': '加入路线',
   'visit.customPlaces': '自定地点',
   'visit.customStop': '自定',
   'visit.addCustomPlace': '+ 自定地点',
@@ -138,7 +140,7 @@ const zh: Dict = {
   'plan.visitFilter': '去过的地方',
   'plan.visitAny': '都可以',
   'plan.visitNewOnly': '只去新的',
-  'plan.mapHint': '点标记加入/移出路线，拖动可调位置',
+  'plan.mapHint': '点标记看详情，进出路线点弹窗里按钮，拖动可调位置',
   'plan.mapEmptyHint': '搜索后，所选目的地的地图和路线显示在这里',
 
   // Recommend — messages
@@ -309,6 +311,8 @@ const ja: Dict = {
   'visit.saveFirst': '先にプランを保存してからチェックインしてください。',
   'visit.visited': '行った',
   'visit.notVisited': '未訪問',
+  'visit.removeFromRoute': 'ルートから外す',
+  'visit.addToRouteBtn': 'ルートに入れる',
   'visit.customPlaces': 'カスタム地点',
   'visit.customStop': 'カスタム',
   'visit.addCustomPlace': '+ カスタム地点',
@@ -321,7 +325,7 @@ const ja: Dict = {
   'plan.visitFilter': '行った場所',
   'plan.visitAny': 'どちらも',
   'plan.visitNewOnly': '新規のみ',
-  'plan.mapHint': 'マーカーをタップでルート出入り、ドラッグで位置調整',
+  'plan.mapHint': 'マーカーをタップで詳細、ルート出入りはポップアップのボタン、ドラッグで位置調整',
   'plan.mapEmptyHint': '検索後、選んだ目的地の地図とルートがここに表示されます',
 
   // Recommend — messages

@@ -110,7 +110,6 @@ export default function DestinationMap({ name, points = [], onTogglePoint, onMov
               icon={pointIcon(p.visited ?? false, included)}
               draggable={interactive}
               eventHandlers={{
-                click: () => onTogglePoint?.(p.name),
                 dragend: (e) => {
                   const ll = (e.target as L.Marker).getLatLng()
                   onMovePoint?.(p.name, ll.lat, ll.lng)
@@ -118,15 +117,38 @@ export default function DestinationMap({ name, points = [], onTogglePoint, onMov
               }}
             >
               <Popup>
-                {p.name}
-                <br />
-                {p.visited ? t('visit.visited') : t('visit.notVisited')}
-                {!included && (
-                  <>
-                    <br />
-                    {t('visit.routeExcluded')}
-                  </>
-                )}
+                <div>
+                  <div>
+                    {p.name}
+                  </div>
+                  <div>
+                    {p.visited ? t('visit.visited') : t('visit.notVisited')}
+                    {!included && (
+                      <>
+                        <br />
+                        {t('visit.routeExcluded')}
+                      </>
+                    )}
+                  </div>
+                  {onTogglePoint && (
+                    <button
+                      type="button"
+                      onClick={() => onTogglePoint(p.name)}
+                      style={{
+                        marginTop: 6,
+                        padding: '4px 10px',
+                        borderRadius: 6,
+                        border: '1px solid #c7d2fe',
+                        background: included ? '#fff' : '#eef2ff',
+                        color: '#2563eb',
+                        fontSize: 12,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {included ? t('visit.removeFromRoute') : t('visit.addToRouteBtn')}
+                    </button>
+                  )}
+                </div>
               </Popup>
             </Marker>
           )
