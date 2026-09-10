@@ -632,6 +632,18 @@ export default function PlanPage() {
                   </div>
                 </div>
 
+                <div>
+                  <span className="text-sm text-slate-600">{t('plan.visitFilter')}</span>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Chip active={visitFilter === 'any'} onClick={() => setVisitFilter('any')}>
+                      {t('plan.visitAny')}
+                    </Chip>
+                    <Chip active={visitFilter === 'new'} onClick={() => setVisitFilter('new')}>
+                      {t('plan.visitNewOnly')}
+                    </Chip>
+                  </div>
+                </div>
+
                 <button
                   type="submit"
                   disabled={loading}
@@ -694,6 +706,18 @@ export default function PlanPage() {
                       className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
                     />
                   </label>
+                </div>
+
+                <div>
+                  <span className="text-sm text-slate-600">{t('plan.visitFilter')}</span>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Chip active={visitFilter === 'any'} onClick={() => setVisitFilter('any')}>
+                      {t('plan.visitAny')}
+                    </Chip>
+                    <Chip active={visitFilter === 'new'} onClick={() => setVisitFilter('new')}>
+                      {t('plan.visitNewOnly')}
+                    </Chip>
+                  </div>
                 </div>
 
                 <button
