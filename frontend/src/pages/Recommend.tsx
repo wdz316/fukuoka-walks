@@ -124,7 +124,6 @@ export default function PlanPage() {
   const [recommendations, setRecommendations] = useState<Recommendation[]>([])
   const [selected, setSelected] = useState<Recommendation | null>(null)
   const [loading, setLoading] = useState(false)
-  const [directLoading, setDirectLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -230,17 +229,17 @@ export default function PlanPage() {
         setMessage(t('plan.msgNoMatch', { summary }))
         return
       }
-      // Pin an explicitly requested destination to the top so the condition
-      // search honors the 目的地 field instead of burying it.
+      // Pin an explicitly requested destination: when 目的地 is specified,
+      // it is the ONLY result. Everything else is noise.
       let ranked = data
       if (pinQuery) {
         const idx = data.findIndex((r) => destinationNameMatches(r.destination.name, pinQuery))
-        if (idx > 0) {
+        if (idx >= 0) {
           const [pinned] = data.splice(idx, 1)
           pinned.reason = `${t('plan.pinnedPrefix')}${pinned.reason ?? ''}`
-          ranked = [pinned, ...data]
-        } else if (idx === 0) {
-          data[0].reason = `${t('plan.pinnedPrefix')}${data[0].reason ?? ''}`
+          ranked = [pinned]
+        } else {
+          ranked = []
         }
       }
       // 只去新的：drop already-visited destinations (pinned one always stays).
@@ -255,8 +254,12 @@ export default function PlanPage() {
         ranked = [...pinned, ...rest]
       }
       setRecommendations(ranked)
-      setSelected(ranked[0])
-      setMessage(t('plan.msgFound', { summary, n: ranked.length }))
+      setSelected(ranked[0] ?? null)
+      if (pinQuery && ranked.length === 0) {
+        setMessage(t('plan.msgDestinationNotFound', { query: pinQuery }))
+      } else {
+        setMessage(t('plan.msgFound', { summary, n: ranked.length }))
+      }
     } catch (e: unknown) {
       setRecommendations([])
       setError(e instanceof Error ? e.message : t('plan.failRecommend'))
@@ -296,53 +299,6 @@ export default function PlanPage() {
     const parts = [form.startDate, form.endDate, visitNote].filter(Boolean)
     const pin = form.destination.trim() || undefined
     void runRecommend(req, parts.join(' / '), pin)
-  }
-
-  async function handleDirectSubmit(e: FormEvent) {
-    e.preventDefault()
-    const query = form.directDestination.trim()
-    if (!query) {
-      setMessage(t('plan.msgEnterDestination'))
-      return
-    }
-    setDirectLoading(true)
-    setError(null)
-    setMessage(null)
-    setSavedTrip(null)
-    setRecommendations([])
-    setSelected(null)
-    setPlanDates(null)
-    try {
-      const data = await api.getDestinations()
-      const match = data.find((d) => destinationNameMatches(d.name, query))
-      if (!match) {
-        setMessage(t('plan.msgDestinationNotFound', { query }))
-        return
-      }
-      const rec: Recommendation = {
-        destination: match,
-        score: 100,
-        reason: t('plan.specifiedDestination'),
-      }
-      setRecommendations([rec])
-      setSelected(rec)
-      const plan = effectiveDirectDates(form)
-      setPlanDates(plan)
-      setMessage(
-        plan.defaultsApplied
-          ? t('plan.msgDirectWithDefault', {
-              name: displayName(match.name),
-              start: plan.start,
-            })
-          : t('plan.msgDirect', { name: displayName(match.name) }),
-      )
-    } catch (err: unknown) {
-      setRecommendations([])
-      setSelected(null)
-      setError(err instanceof Error ? err.message : t('error.processFailed'))
-    } finally {
-      setDirectLoading(false)
-    }
   }
 
   async function handleSave() {
@@ -573,36 +529,22 @@ export default function PlanPage() {
 
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">
-            {t('plan.specifyDestination')}
+            {t('visit.trailMap')}
           </h2>
-          <form onSubmit={handleDirectSubmit} className="mt-4 space-y-4">
-            <label className="block text-sm">
-              <span className="text-slate-600">{t('plan.destination')}</span>
-              <input
-                type="text"
-                value={form.directDestination}
-                onChange={(e) => update('directDestination', e.target.value)}
-                placeholder="例: 京都, Fukuoka"
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+          <div className="mt-4 h-[420px] overflow-hidden rounded-xl border border-slate-200">
+            {selectedDest ? (
+              <DestinationMap
+                name={selectedName}
+                points={mapPoints}
+                onTogglePoint={toggleStopExcluded}
+                onMovePoint={moveStop}
               />
-            </label>
-            <label className="block text-sm">
-              <span className="text-slate-600">{t('plan.startDate')}</span>
-              <input
-                type="date"
-                value={form.directDate}
-                onChange={(e) => update('directDate', e.target.value)}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-              />
-            </label>
-            <button
-              type="submit"
-              disabled={directLoading || !form.directDestination}
-              className="w-full rounded-lg border border-slate-300 px-4 py-3 font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
-            >
-              {directLoading ? t('plan.processing') : t('plan.createWithDestination')}
-            </button>
-          </form>
+            ) : (
+              <div className="flex h-full items-center justify-center bg-slate-50 p-6 text-center text-sm text-slate-400">
+                {t('plan.mapEmptyHint')}
+              </div>
+            )}
+          </div>
         </section>
       </div>
 
@@ -664,19 +606,6 @@ export default function PlanPage() {
               {selectedDest ? (
                 <>
                   <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                    <div className="border-b border-slate-100 px-5 pb-1 pt-4">
-                      <h3 className="text-sm font-semibold text-slate-500">{t('visit.trailMap')}</h3>
-                    </div>
-                    <div className="h-[380px]">
-                      <DestinationMap
-                        name={selectedName}
-                        points={mapPoints}
-                        onTogglePoint={toggleStopExcluded}
-                        onMovePoint={moveStop}
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
                   {selectedDest.image_url ? (
                     <img
                       src={selectedDest.image_url}

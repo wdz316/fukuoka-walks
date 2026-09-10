@@ -138,6 +138,7 @@ const zh: Dict = {
   'plan.visitAny': '都可以',
   'plan.visitNewOnly': '只去新的',
   'plan.mapHint': '点标记加入/移出路线，拖动可调位置',
+  'plan.mapEmptyHint': '搜索后，所选目的地的地图和路线显示在这里',
 
   // Recommend — messages
   'plan.msgNoMatch': '未找到符合「{summary}」的旅行目的地。',
@@ -319,6 +320,7 @@ const ja: Dict = {
   'plan.visitAny': 'どちらも',
   'plan.visitNewOnly': '新規のみ',
   'plan.mapHint': 'マーカーをタップでルート出入り、ドラッグで位置調整',
+  'plan.mapEmptyHint': '検索後、選んだ目的地の地図とルートがここに表示されます',
 
   // Recommend — messages
   'plan.msgNoMatch': '「{summary}」に合う旅行先が見つかりませんでした。',
