@@ -11,7 +11,8 @@ from app.routers import destinations, preferences, recommendations, spots, trips
 
 # Vite build output (frontend/dist). Absent in dev/test checkouts where only
 # `npm run dev` is used — the app then serves API only.
-FRONTEND_DIST = Path(__file__).resolve().parent.parent.parent.parent / "frontend" / "dist"
+# main.py lives at backend/app/main.py, so repo root is three levels up.
+FRONTEND_DIST = Path(__file__).resolve().parent.parent.parent / "frontend" / "dist"
 
 
 # Reserved prefixes that must never fall through to the SPA shell.
