@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.export.generator import render_trip_html
-from app.models import Destination, Trip
+from app.models import Destination, Spot, Trip
 from app.schemas import Trip as TripSchema, TripIn
 
 router = APIRouter(prefix="/api/trips", tags=["Trips"])
@@ -165,7 +165,14 @@ def export_trip(trip_id: int, db: Session = Depends(get_db)):
     destination: Destination | None = None
     if trip.destination_id is not None:
         destination = db.get(Destination, trip.destination_id)
-    html = render_trip_html(trip, _prepare_destination(destination))
+    spots = db.scalars(
+        select(Spot)
+        .where(Spot.device_id == (trip.device_id or "default"))
+        .order_by(Spot.id)
+    ).all()
+    html = render_trip_html(
+        trip, _prepare_destination(destination), spots=spots
+    )
     return Response(
         content=html,
         media_type="text/html; charset=utf-8",

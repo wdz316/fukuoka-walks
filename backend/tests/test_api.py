@@ -312,3 +312,174 @@ def test_list_trips_returns_status(client: TestClient) -> None:
     assert listing.status_code == 200
     listed = next(t for t in listing.json() if t["id"] == created["id"])
     assert listed["status"] == "planned"
+
+
+def test_spots_crud_and_device_scope(client: TestClient) -> None:
+    device = "spot-dev"
+    headers = {"X-Device-Id": device}
+    created = client.post(
+        "/api/spots",
+        json={
+            "name": "祇園の隠れカフェ",
+            "lat": 35.0036,
+            "lng": 135.7753,
+            "destination_id": 2,
+            "description": "巷弄裡的安靜咖啡店",
+        },
+        headers=headers,
+    )
+    assert created.status_code == 201
+    spot = created.json()
+    assert spot["id"] > 0
+    assert spot["device_id"] == device
+    assert spot["destination_id"] == 2
+    assert spot["name"] == "祇園の隠れカフェ"
+    assert spot["lat"] == 35.0036
+    assert spot["lng"] == 135.7753
+    assert spot["description"] == "巷弄裡的安靜咖啡店"
+    assert spot["photo_url"] is None
+    assert spot["created_at"]
+
+    listing = client.get("/api/spots", headers=headers)
+    assert listing.status_code == 200
+    assert any(s["id"] == spot["id"] for s in listing.json())
+
+    by_destination = client.get("/api/spots?destination_id=2", headers=headers)
+    assert any(s["id"] == spot["id"] for s in by_destination.json())
+    by_other_dest = client.get("/api/spots?destination_id=99", headers=headers)
+    assert all(s["id"] != spot["id"] for s in by_other_dest.json())
+
+    # different device scope should not see the spot
+    other = client.get("/api/spots", headers={"X-Device-Id": "other-spot"})
+    assert all(s["id"] != spot["id"] for s in other.json())
+
+    # only the owner can delete it
+    not_owned = client.delete(
+        f"/api/spots/{spot['id']}", headers={"X-Device-Id": "someone-else"}
+    )
+    assert not_owned.status_code == 404
+
+    deleted = client.delete(f"/api/spots/{spot['id']}", headers=headers)
+    assert deleted.status_code == 204
+    after = client.get("/api/spots", headers=headers)
+    assert all(s["id"] != spot["id"] for s in after.json())
+
+    assert client.delete("/api/spots/999999", headers=headers).status_code == 404
+
+
+def test_spots_scope_via_query_device_id(client: TestClient) -> None:
+    created = client.post(
+        "/api/spots?device_id=q-spot",
+        json={"name": "碼頭觀景台", "lat": 33.5937, "lng": 130.4039},
+    )
+    assert created.status_code == 201
+    assert created.json()["device_id"] == "q-spot"
+
+    owned = client.get("/api/spots?device_id=q-spot")
+    assert any(s["name"] == "碼頭觀景台" for s in owned.json())
+
+    scoped_away = client.get("/api/spots?device_id=other-q")
+    assert all(s["name"] != "碼頭觀景台" for s in scoped_away.json())
+
+
+def test_spot_photo_upload_and_static_serving(client: TestClient) -> None:
+    from app.core.config import settings
+
+    png = b"\x89PNG\r\n\x1a\n" + b"fake-png-payload"
+    resp = client.post(
+        "/api/spots/photo",
+        files={"file": ("photo.png", png, "image/png")},
+    )
+    assert resp.status_code == 201
+    url = resp.json()["url"]
+    assert url.startswith("/uploads/")
+
+    upload_dir = settings.UPLOAD_DIR
+    saved = upload_dir / url.rsplit("/", 1)[-1]
+    assert saved.read_bytes() == png
+    assert saved.suffix == ".png"
+
+    served = client.get(url)
+    assert served.status_code == 200
+    assert served.content == png
+
+
+def test_spot_photo_rejects_invalid_type_and_too_large(client: TestClient) -> None:
+    bad_ext = client.post(
+        "/api/spots/photo",
+        files={"file": ("photo.gif", b"GIF89a", "image/gif")},
+    )
+    assert bad_ext.status_code == 400
+
+    bad_mime = client.post(
+        "/api/spots/photo",
+        files={"file": ("photo.png", b"png", "application/octet-stream")},
+    )
+    assert bad_mime.status_code == 400
+
+    empty = client.post(
+        "/api/spots/photo",
+        files={"file": ("photo.jpg", b"", "image/jpeg")},
+    )
+    assert empty.status_code == 400
+
+    oversized = client.post(
+        "/api/spots/photo",
+        files={"file": ("photo.jpg", b"a" * (5 * 1024 * 1024 + 1), "image/jpeg")},
+    )
+    assert oversized.status_code == 413
+
+
+def test_trip_export_includes_device_spots(client: TestClient) -> None:
+    device = "export-spot-dev"
+    headers = {"X-Device-Id": device}
+    trip = client.post(
+        "/api/trips",
+        json={
+            "title": "京都自探",
+            "start_date": "2026-05-01",
+            "end_date": "2026-05-03",
+            "destination_id": 2,
+        },
+        headers=headers,
+    ).json()
+
+    photo = client.post(
+        "/api/spots/photo",
+        files={"file": ("spot.jpg", b"\xff\xd8\xfffake-jpeg", "image/jpeg")},
+        headers=headers,
+    ).json()
+
+    client.post(
+        "/api/spots",
+        json={
+            "name": "伏見深處小火車",
+            "lat": 34.9876,
+            "lng": 135.7596,
+            "description": "絕景秘境",
+            "photo_url": photo["url"],
+        },
+        headers=headers,
+    )
+
+    resp = client.get(f"/api/trips/{trip['id']}/export", headers=headers)
+    assert resp.status_code == 200
+    body = resp.text
+    assert "伏見深處小火車" in body
+    assert "絕景秘境" in body
+    assert "我的地點" in body
+    assert photo["url"] in body
+
+    # a trip created by another device (no spots) must not show this spot
+    other_trip = client.post(
+        "/api/trips",
+        json={
+            "title": "他人旅程",
+            "start_date": "2026-06-01",
+            "end_date": "2026-06-02",
+        },
+        headers={"X-Device-Id": "other"},
+    ).json()
+    other_body = client.get(f"/api/trips/{other_trip['id']}/export").text
+    assert "伏見深處小火車" not in other_body
+    assert "我的地點" not in other_body

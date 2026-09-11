@@ -21,6 +21,8 @@ tags:
     description: Trip lifecycle management and export
   - name: Visits
     description: Visited attractions (足迹) and trip completion
+  - name: Spots
+    description: User-created places (自建地点) with optional photos
   - name: Recommendations
     description: Destination recommendation engine
   - name: Preferences
@@ -270,6 +272,109 @@ paths:
       responses:
         "204":
           description: Visit deleted
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /api/spots:
+    get:
+      tags:
+        - Spots
+      summary: List user-created places for the current device
+      operationId: listSpots
+      parameters:
+        - $ref: "#/components/parameters/XDeviceId"
+        - $ref: "#/components/parameters/DeviceQuery"
+        - name: destination_id
+          in: query
+          required: false
+          description: Filter spots linked to a destination from the catalogue
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of spots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Spot"
+    post:
+      tags:
+        - Spots
+      summary: Create a user-created place for the current device
+      operationId: createSpot
+      parameters:
+        - $ref: "#/components/parameters/XDeviceId"
+        - $ref: "#/components/parameters/DeviceQuery"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpotIn"
+      responses:
+        "201":
+          description: Spot created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Spot"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+  /api/spots/photo:
+    post:
+      tags:
+        - Spots
+      summary: Upload a spot photo (jpg/png/webp, max 5MB)
+      operationId: uploadSpotPhoto
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Photo uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhotoUpload"
+        "400":
+          description: Photo rejected (wrong type or empty)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "413":
+          description: Photo exceeds the 5MB limit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /api/spots/{id}:
+    delete:
+      tags:
+        - Spots
+      summary: Delete a user-created place by id (own-device only)
+      operationId: deleteSpot
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - $ref: "#/components/parameters/XDeviceId"
+        - $ref: "#/components/parameters/DeviceQuery"
+      responses:
+        "204":
+          description: Spot deleted
         "404":
           $ref: "#/components/responses/NotFound"
   /api/trips/{id}/export:
@@ -582,6 +687,79 @@ components:
           type: string
           format: date-time
           description: When the attraction was visited (defaults to now)
+    Spot:
+      type: object
+      required:
+        - id
+        - device_id
+        - name
+        - lat
+        - lng
+        - created_at
+      properties:
+        id:
+          type: integer
+          readOnly: true
+          description: Unique spot id (server-assigned)
+        device_id:
+          type: string
+          description: Device that created the spot
+        destination_id:
+          type: integer
+          description: Optional linked destination from the catalogue
+        name:
+          type: string
+          description: Spot name
+        lat:
+          type: number
+          description: Latitude
+        lng:
+          type: number
+          description: Longitude
+        description:
+          type: string
+          description: Optional note about the spot
+        photo_url:
+          type: string
+          description: Public URL of an uploaded photo (e.g. /uploads/xxx.jpg)
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+          description: When the spot was created
+    SpotIn:
+      type: object
+      required:
+        - name
+        - lat
+        - lng
+      properties:
+        name:
+          type: string
+          description: Spot name
+        lat:
+          type: number
+          description: Latitude
+        lng:
+          type: number
+          description: Longitude
+        destination_id:
+          type: integer
+          description: Optional linked destination from the catalogue
+        description:
+          type: string
+          description: Optional note about the spot
+        photo_url:
+          type: string
+          description: Public URL of an uploaded photo (e.g. /uploads/xxx.jpg)
+    PhotoUpload:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          description: Public URL of the uploaded photo (served under /uploads)
     TripCompleteIn:
       type: object
       required:
@@ -612,7 +790,7 @@ components:
       name: device_id
       in: query
       required: false
-      description: Alternative to the X-Device-Id header for scoping visits
+      description: Alternative to the X-Device-Id header for scoping visits and spots
       schema:
         type: string
   responses:

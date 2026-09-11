@@ -1,9 +1,11 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
+from app.core.config import settings
 from app.db import engine, run_migrations
-from app.routers import destinations, preferences, recommendations, trips, visits
+from app.routers import destinations, preferences, recommendations, spots, trips, visits
 
 
 def create_app() -> FastAPI:
@@ -23,6 +25,11 @@ def create_app() -> FastAPI:
     app.include_router(destinations.router)
     app.include_router(preferences.router)
     app.include_router(visits.router)
+    app.include_router(spots.router)
+
+    upload_dir = settings.UPLOAD_DIR
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory=str(upload_dir)), name="uploads")
 
     return app
 

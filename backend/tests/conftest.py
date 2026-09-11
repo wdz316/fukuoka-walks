@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 import app.models  # noqa: F401  # register tables on Base before create_all
+from app.core.config import settings
 from app.db import Base, get_db
 from app.main import create_app
 from app.seed import seed_destinations
@@ -22,6 +23,10 @@ def client(tmp_path: Path) -> TestClient:
     Base.metadata.create_all(bind=engine)
     with TestSession() as seed_db:
         seed_destinations(seed_db)
+
+    upload_dir = tmp_path / "uploads"
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    settings.UPLOAD_DIR = upload_dir
 
     def _override_get_db() -> None:
         db = TestSession()

@@ -9,6 +9,9 @@ data/*.db-*
 backend/data/*.db
 backend/data/*.db-*
 
+# Uploaded user photos (never commit user files)
+backend/data/uploads/
+
 # Frontend
 node_modules/
 frontend/dist/

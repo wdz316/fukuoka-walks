@@ -76,3 +76,24 @@ class Visit(Base):
     )
     attraction_name: Mapped[str] = mapped_column(String(255), nullable=False)
     visited_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
+class Spot(Base):
+    """A user-created place (用户自建地点) with optional photo."""
+
+    __tablename__ = "spots"
+    __table_args__ = (
+        Index("ix_spots_device_destination", "device_id", "destination_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    device_id: Mapped[str] = mapped_column(String(128), nullable=False, default="default")
+    destination_id: Mapped[int | None] = mapped_column(
+        ForeignKey("destinations.id"), nullable=True
+    )
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    lat: Mapped[float] = mapped_column(Float, nullable=False)
+    lng: Mapped[float] = mapped_column(Float, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    photo_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)

@@ -210,40 +210,62 @@ def _timeline(trip, destination) -> str:
     )
 
 
-def _map_section(destination) -> str:
+def _destination_points(destination) -> list[dict]:
+    """Map points for a destination (prebuilt ``map_points`` or derived from
+    its attractions/hotels list). Same shape used across map + timeline."""
+    points = []
     if destination is None:
-        return (
-            '<section class="card map"><h2>地圖 (Map)</h2>'
-            '<div id="map" class="map-canvas"><p class="map-fallback">'
-            "地圖加載中 / Map loading…</p></div></section>"
-        )
-
+        return points
+    map_points_attr = getattr(destination, "map_points", None) or []
+    points = list(map_points_attr)
+    if points:
+        return points
     attractions = getattr(destination, "attractions", None) or []
     hotels = getattr(destination, "hotels", None) or []
-    map_points_attr = getattr(destination, "map_points", None) or []
+    for a in attractions:
+        pt = {
+            "name": a["name"], "lat": a["lat"], "lng": a["lng"],
+            "type": "attraction", "day": a.get("day"),
+            "url": a.get("url"), "phone": a.get("phone"),
+            "address": a.get("address"), "booking_url": a.get("booking_url"),
+            "station": a.get("station"),
+        }
+        pt["popupHtml"] = _popup_html(pt)
+        points.append(pt)
+    for h in hotels:
+        pt = {
+            "name": h["name"], "lat": h["lat"], "lng": h["lng"],
+            "type": "hotel", "day": h.get("day"),
+            "url": h.get("url"), "phone": h.get("phone"),
+            "address": h.get("address"), "booking_url": h.get("booking_url"),
+            "station": h.get("station"),
+        }
+        pt["popupHtml"] = _popup_html(pt)
+        points.append(pt)
+    return points
 
-    all_points = list(map_points_attr)
-    if not all_points:
-        for a in attractions:
-            pt = {
-                "name": a["name"], "lat": a["lat"], "lng": a["lng"],
-                "type": "attraction", "day": a.get("day"),
-                "url": a.get("url"), "phone": a.get("phone"),
-                "address": a.get("address"), "booking_url": a.get("booking_url"),
-                "station": a.get("station"),
-            }
-            pt["popupHtml"] = _popup_html(pt)
-            all_points.append(pt)
-        for h in hotels:
-            pt = {
-                "name": h["name"], "lat": h["lat"], "lng": h["lng"],
-                "type": "hotel", "day": h.get("day"),
-                "url": h.get("url"), "phone": h.get("phone"),
-                "address": h.get("address"), "booking_url": h.get("booking_url"),
-                "station": h.get("station"),
-            }
-            pt["popupHtml"] = _popup_html(pt)
-            all_points.append(pt)
+
+def _spot_points(spots) -> list[dict]:
+    """Map points for user-created spots (rendered alongside attractions)."""
+    points = []
+    for s in spots or []:
+        pt = {
+            "name": getattr(s, "name", ""),
+            "lat": getattr(s, "lat", None),
+            "lng": getattr(s, "lng", None),
+            "type": "spot",
+            "day": None,
+            "description": getattr(s, "description", None),
+            "photo_url": getattr(s, "photo_url", None),
+        }
+        pt["popupHtml"] = _popup_html(pt)
+        points.append(pt)
+    return points
+
+
+def _map_section(destination, spots=None) -> str:
+    all_points = _destination_points(destination)
+    all_points.extend(_spot_points(spots))
     all_points.sort(key=lambda p: (p.get("day") or 9999))
 
     if not all_points:
@@ -347,6 +369,13 @@ def _popup_html(p: dict) -> str:
             '<br><span style="color:#374151;font-size:.85em">🚇 %s（%s）</span>'
             % (_esc(station.get("name")), _esc(station.get("line")))
         )
+    if p.get("photo_url"):
+        parts.append(
+            '<br><a href="%s" target="_blank" rel="noopener"><img src="%s" '
+            'style="max-width:200px;border-radius:8px;margin-top:6px" '
+            'alt="%s"></a>'
+            % (_esc(p.get("photo_url")), _esc(p.get("photo_url")), _esc(name))
+        )
     parts.append("</div>")
     return "".join(parts)
 
@@ -398,12 +427,41 @@ def _init_map_script() -> str:
     )
 
 
-def render_trip_html(trip, destination=None, next_trip=None) -> str:
+def _spots_section(spots) -> str:
+    """Render user-created spots with the same detail-card layout as
+    attractions (photo + description)."""
+    if not spots:
+        return ""
+    cards = []
+    for s in spots:
+        name = getattr(s, "name", "") or ""
+        desc = getattr(s, "description", None) or ""
+        photo = ""
+        pu = getattr(s, "photo_url", None)
+        if pu:
+            photo = '<img src="%s" alt="%s" class="spot-photo">' % (_esc(pu), _esc(name))
+        cards.append(
+            '<div class="detail-card detail-spot">'
+            '<div class="detail-name">📍 %s</div>'
+            '<div class="detail-row"><span class="detail-text">%s</span></div>'
+            "%s"
+            "</div>" % (_esc(name), _esc(desc), photo)
+        )
+    return (
+        '<section class="card spots"><h2>我的地點 (My Spots)</h2>'
+        + "".join(cards)
+        + "</section>"
+    )
+
+
+def render_trip_html(trip, destination=None, next_trip=None, spots=None) -> str:
     """Render ``trip`` as a self-contained HTML document string.
 
-    ``trip``/``destination``/``next_trip`` may be ORM models or simple
+    ``trip``/``destination``/``next_trip``/``spots`` may be ORM models or simple
     attribute-holding objects. `destination` supplies coordinates and booking
-    labels; `next_trip` (optional) renders an upcoming-trip teaser.
+    labels; `next_trip` (optional) renders an upcoming-trip teaser; `spots`
+    (optional) are the device's user-created places rendered alongside the
+    itinerary's attractions on both the map and the timeline.
     """
     title = getattr(trip, "title", "My Trip") or "My Trip"
     start = getattr(trip, "start_date", None)
@@ -449,33 +507,9 @@ def render_trip_html(trip, destination=None, next_trip=None) -> str:
     point_lat = getattr(destination, "lat", None) if destination is not None else None
     point_lng = getattr(destination, "lng", None) if destination is not None else None
 
-    attractions = getattr(destination, "attractions", None) or []
-    hotels = getattr(destination, "hotels", None) or []
-    map_points_attr = getattr(destination, "map_points", None) or []
-
-    all_points = list(map_points_attr)
-    if not all_points:
-        for a in attractions:
-            pt = {
-                "name": a["name"], "lat": a["lat"], "lng": a["lng"],
-                "type": "attraction", "day": a.get("day"),
-                "url": a.get("url"), "phone": a.get("phone"),
-                "address": a.get("address"), "booking_url": a.get("booking_url"),
-                "station": a.get("station"),
-            }
-            pt["popupHtml"] = _popup_html(pt)
-            all_points.append(pt)
-        for h in hotels:
-            pt = {
-                "name": h["name"], "lat": h["lat"], "lng": h["lng"],
-                "type": "hotel", "day": h.get("day"),
-                "url": h.get("url"), "phone": h.get("phone"),
-                "address": h.get("address"), "booking_url": h.get("booking_url"),
-                "station": h.get("station"),
-            }
-            pt["popupHtml"] = _popup_html(pt)
-            all_points.append(pt)
-    all_points.sort(key=lambda p: (p.get("day") or 9999))
+    all_points = []
+    all_points.extend(_destination_points(destination))
+    all_points.extend(_spot_points(spots))
 
     if not all_points and point_lat is not None and point_lng is not None:
         fallback = {"name": dest_name, "lat": point_lat, "lng": point_lng,
@@ -491,6 +525,7 @@ def render_trip_html(trip, destination=None, next_trip=None) -> str:
     comment_html = ""
     if comment:
         comment_html = "<p class='comment'>%s</p>" % _esc(comment)
+    spots_section_html = _spots_section(spots)
 
     return f"""<!DOCTYPE html>
 <html lang="zh-Hant">
@@ -570,6 +605,11 @@ def render_trip_html(trip, destination=None, next_trip=None) -> str:
     padding: 10px 12px;
   }}
   .detail-card.detail-hotel {{ border-left: 3px solid #dc2626; }}
+  .spot-photo {{
+    max-width: 100%; border-radius: 10px; margin-top: 8px;
+    border: 1px solid #e5e7eb;
+  }}
+  .detail-spot {{ border-left: 3px solid #0891b2; }}
   .detail-name {{ font-weight: 700; color: #111827; margin-bottom: 4px; }}
   .detail-row {{ display: flex; gap: 6px; align-items: flex-start; font-size: .85rem; color: #374151; margin-bottom: 2px; }}
   .detail-icon {{ flex: none; }}
@@ -595,14 +635,14 @@ def render_trip_html(trip, destination=None, next_trip=None) -> str:
     <div id="countdown">—</div>
   </header>
 
-  {_map_section(destination)}
+  {_map_section(destination, spots)}
 
   {comment_html}
   {notes_html}
 
   {_timeline(trip, destination)}
-
-  {next_block}
+{spots_section_html}
+{next_block}
 </div>
 {_render_countdown_script(end)}
 {map_init_script}

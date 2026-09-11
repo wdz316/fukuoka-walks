@@ -132,6 +132,39 @@ class VisitIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
 
+class Spot(BaseModel):
+    """components.schemas.Spot — a user-created place (用户自建地点)."""
+
+    id: int
+    device_id: str
+    destination_id: int | None = None
+    name: str
+    lat: float
+    lng: float
+    description: str | None = None
+    photo_url: str | None = None
+    created_at: datetime
+
+
+class SpotIn(BaseModel):
+    """Request body for POST /api/spots."""
+
+    name: str
+    lat: float
+    lng: float
+    destination_id: int | None = None
+    description: str | None = None
+    photo_url: str | None = None
+
+    model_config = ConfigDict(extra="ignore")
+
+
+class PhotoUpload(BaseModel):
+    """Response body for POST /api/spots/photo."""
+
+    url: str
+
+
 class TripCompleteIn(BaseModel):
     """Request body for POST /api/trips/{id}/complete."""
 

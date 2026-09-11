@@ -49,6 +49,16 @@ class _Next:
         self.start_date = start_date
 
 
+class _Spot:
+    def __init__(self, name="我的私房景點", lat=35.0116, lng=135.7681,
+                 description="秘密小徑", photo_url="/uploads/a.png"):
+        self.name = name
+        self.lat = lat
+        self.lng = lng
+        self.description = description
+        self.photo_url = photo_url
+
+
 def test_render_is_self_contained_html_document():
     html = render_trip_html(_Trip())
     assert html.startswith("<!DOCTYPE html>")
@@ -278,3 +288,32 @@ def test_render_includes_budget_and_dates():
 
 def test_epoch_start_is_midnight_utc_of_end_date():
     assert _epoch_start(date(2026, 3, 27)) == 1774569600000
+
+
+def test_render_omits_spots_when_none_provided():
+    html = render_trip_html(_Trip(), _Destination())
+    assert "我的地點" not in html
+
+
+def test_render_merges_spots_into_map_and_timeline():
+    spot = _Spot()
+    spots = [spot]
+    trip = _Trip(start_date=date(2026, 3, 20), end_date=date(2026, 3, 21))
+    html = render_trip_html(trip, _Destination(), spots=spots)
+    # map points include the spot with coordinates + photo
+    assert "__MAP_POINTS__" in html
+    assert "我的私房景點" in html
+    assert "35.0116" in html
+    assert "/uploads/a.png" in html
+    # timeline section renders the spot with description + photo
+    assert "我的地點" in html
+    assert "秘密小徑" in html
+    assert 'class="spot-photo"' in html
+
+
+def test_render_escapes_spots_user_fields():
+    spot = _Spot(name="<script>", description="<b>x</b>")
+    html = render_trip_html(_Trip(), _Destination(), spots=[spot])
+    assert "&lt;script&gt;" in html
+    assert "&lt;b&gt;x&lt;/b&gt;" in html
+    assert ">alert" not in html and "onerror" not in html
