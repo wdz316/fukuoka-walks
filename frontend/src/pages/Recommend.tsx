@@ -3,7 +3,6 @@ import type { ChangeEvent, FormEvent, ReactNode } from 'react'
 import DestinationMap, { type MapPoint } from '../components/DestinationMap'
 import {
   api,
-  type Destination,
   type Recommendation,
   type RecommendRequest,
   type Spot,
@@ -43,17 +42,6 @@ function dayCount(start: string, end: string): number {
 
 /** Scope locked: Fukuoka city walks only (per project decision). */
 const FIXED_DESTINATION = 'Fukuoka'
-
-function estimatedBudget(dest: Destination, days: number): number | null {
-  if (!days || days < 1) return null
-  let level: number | undefined
-  if (days <= 2) level = dest.cost_level_1
-  else if (days <= 4) level = dest.cost_level_2
-  else if (days <= 7) level = dest.cost_level_3
-  else level = dest.cost_level_4
-  if (!level || level <= 0) return null
-  return level * 20_000 * days
-}
 
 function reasonList(reason: string | undefined): string[] {
   if (!reason) return []
@@ -381,7 +369,6 @@ export default function PlanPage() {
 
   const selectedDest = selected?.destination
   const days = planDates ? dayCount(planDates.start, planDates.end) : 0
-  const budget = selectedDest && days ? estimatedBudget(selectedDest, days) : null
   const reasons = reasonList(selected?.reason)
   const matchedInterests = selected?.matched_interests ?? []
   const route = useMemo(
@@ -568,64 +555,10 @@ export default function PlanPage() {
         </section>
       </div>
 
-      {recommendations.length > 0 && (
+      {recommendations.length > 0 && selectedDest && (
         <section className="mt-10">
-          <h2 className="text-lg font-semibold text-slate-900">{t('plan.recommendedDestinations')}</h2>
-          <div className="mt-4 grid grid-cols-1 gap-6 lg:grid-cols-5">
-            <ul className="space-y-3 lg:col-span-2">
-              {recommendations.map((rec) => {
-                const active = selected?.destination.id === rec.destination.id
-                return (
-                  <li key={rec.destination.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelected(rec)
-                        setSavedTrip(null)
-                      }}
-                      className={`w-full rounded-xl border p-4 text-left transition-colors ${
-                        active
-                          ? 'border-rose-500 bg-rose-50'
-                          : 'border-slate-200 bg-white hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-slate-900">
-                          {displayName(rec.destination.name)}
-                        </span>
-                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">
-                           {t('plan.fitScore', { score: Math.round(rec.score) })}
-                        </span>
-                      </div>
-                      <p className="mt-1 text-sm text-slate-600">
-                        {countryLabel(rec.destination.country)}・{regionLabel(rec.destination.region)}
-                      </p>
-                      {rec.reason && (
-                        <p className="mt-2 text-sm text-slate-500">{rec.reason}</p>
-                      )}
-                      {rec.matched_interests &&
-                        rec.matched_interests.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-1">
-                            {rec.matched_interests.map((m) => (
-                              <span
-                                key={m}
-                                className="rounded-full bg-rose-100 px-2 py-0.5 text-xs text-rose-700"
-                              >
-                                {m}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
-
-            <div className="lg:col-span-3">
-              {selectedDest ? (
-                <>
-                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div>
+            <div>
                   {selectedDest.image_url ? (
                     <img
                       src={selectedDest.image_url}
@@ -710,14 +643,6 @@ export default function PlanPage() {
                           start: planDates.start,
                           end: planDates.end,
                           days,
-                        })}
-                      </p>
-                    )}
-
-                    {budget != null && (
-                      <p className="mt-1 text-sm text-slate-600">
-                        {t('plan.budgetEstimate', {
-                          amount: budget.toLocaleString('ja-JP'),
                         })}
                       </p>
                     )}
@@ -1047,13 +972,6 @@ export default function PlanPage() {
                     </div>
                   </div>
                 </div>
-                </>
-              ) : (
-                <div className="flex h-80 items-center justify-center rounded-2xl border border-dashed border-slate-300 text-slate-400">
-                  {t('plan.selectDestination')}
-                </div>
-              )}
-            </div>
           </div>
         </section>
       )}
