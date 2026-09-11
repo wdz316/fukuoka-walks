@@ -1,0 +1,7 @@
+services:
+  - type: web
+    name: fukuoka-walks
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    autoDeploy: true
