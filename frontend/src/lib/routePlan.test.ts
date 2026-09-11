@@ -113,8 +113,10 @@ describe('planLegs', () => {
     expect(legs).toHaveLength(2)
     expect(legs[0]).toMatchObject({ from: 'A', to: 'B', mode: 'walk' })
     expect(legs[0].minutes).toBeGreaterThanOrEqual(1)
+    expect(legs[0].fare).toBe(0)
     expect(legs[1]).toMatchObject({ from: 'B', to: 'C', mode: 'transit' })
     expect(legs[1].minutes).toBeGreaterThan(legs[0].minutes)
+    expect(legs[1].fare).toBeGreaterThan(0)
   })
 
   it('returns empty for fewer than two points', () => {
@@ -134,5 +136,22 @@ describe('planLegs', () => {
     const gion = { ...a, station: { name: '祇園駅', line: '地下鉄空港線' } }
     expect(planLegs([gion, dazaifu])[0].line).toBeUndefined()
     expect(planLegs([a, near])[0].line).toBeUndefined()
+  })
+})
+
+describe('buildRoute origin', () => {
+  it('prepends the starting point as the first stop of day 1', () => {
+    const days = buildRoute([{ name: 'X', day: 1 }], [], {
+      origin: { name: '博多站', lat: 33.5897, lng: 130.4207, timeLabel: '09:00' },
+    })
+    expect(days[0].stops[0]).toMatchObject({ name: '博多站', timeLabel: '09:00' })
+  })
+
+  it('creates day 1 when there are no other stops', () => {
+    const days = buildRoute([], [], {
+      origin: { name: '博多站', lat: 33.5897, lng: 130.4207 },
+    })
+    expect(days).toHaveLength(1)
+    expect(days[0].stops[0].name).toBe('博多站')
   })
 })

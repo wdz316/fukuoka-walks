@@ -10,6 +10,7 @@ import {
   type Visit,
 } from '../lib'
 import { collectVisitedDestinationIds, type VisitFilter } from '../lib/places'
+import { ORIGIN_PRESETS, originPreset } from '../lib/origins'
 import { rankResults } from '../lib/rankResults'
 import {
   SAME_CITY_PREF_OPTIONS,
@@ -26,12 +27,16 @@ interface FormState {
   startDate: string
   endDate: string
   sameCityPrefs: SameCityPref[]
+  originPlace: string
+  startTime: string
 }
 
 const emptyForm: FormState = {
   startDate: '',
   endDate: '',
   sameCityPrefs: [],
+  originPlace: 'hakata',
+  startTime: '09:00',
 }
 
 function dayCount(start: string, end: string): number {
@@ -371,17 +376,21 @@ export default function PlanPage() {
   const days = planDates ? dayCount(planDates.start, planDates.end) : 0
   const reasons = reasonList(selected?.reason)
   const matchedInterests = selected?.matched_interests ?? []
-  const route = useMemo(
-    () =>
-      selectedDest
-        ? buildRoute(selectedDest.attractions, selectedDest.hotels, {
-            days: days > 0 ? days : undefined,
-            // Day trips never show overnight stays.
-            includeHotels: days === 0 || days >= 2,
-          })
-        : [],
-    [selectedDest, days],
-  )
+  const route = useMemo(() => {
+    if (!selectedDest) return []
+    const preset = originPreset(form.originPlace)
+    return buildRoute(selectedDest.attractions, selectedDest.hotels, {
+      days: days > 0 ? days : undefined,
+      // Day trips never show overnight stays.
+      includeHotels: days === 0 || days >= 2,
+      origin: {
+        name: t(preset.label),
+        lat: preset.lat,
+        lng: preset.lng,
+        timeLabel: form.startTime || undefined,
+      },
+    })
+  }, [selectedDest, days, form.originPlace, form.startTime, t])
   const mergedRoute = useMemo(
     () => mergeCustomPlaces(route, customPlaces),
     [route, customPlaces],
@@ -414,6 +423,9 @@ export default function PlanPage() {
       if (p.station) stations.set(p.name, p.station)
     }
     for (const [name, ll] of Object.entries(coordOverrides)) coords.set(name, ll)
+    // Starting point is not in the catalogue: register the chosen preset.
+    const originLl = originPreset(form.originPlace)
+    coords.set(t(originLl.label), { lat: originLl.lat, lng: originLl.lng })
     // Route order (days, then extras), excluded stops kept as hollow markers.
     const seen = new Set<string>()
     const pts: MapPoint[] = []
@@ -448,7 +460,7 @@ export default function PlanPage() {
       })
     }
     return pts
-  }, [selectedDest, mergedRoute, visitedNames, excludedStops, coordOverrides, savedSpots])
+  }, [selectedDest, mergedRoute, visitedNames, excludedStops, coordOverrides, savedSpots, form.originPlace, t])
   const tripCompleted = savedTrip?.status === 'completed'
 
   return (
@@ -466,79 +478,89 @@ export default function PlanPage() {
         </div>
       )}
 
-      <div className="mt-8 grid grid-cols-1 gap-8 lg:grid-cols-2">
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">{t('plan.searchByConditions')}</h2>
-          <form onSubmit={handleConditionSubmit} className="mt-4 space-y-4">
-            <div className="rounded-lg bg-rose-50 p-3 text-sm text-rose-700">
+      <div className="mt-8">
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <form onSubmit={handleConditionSubmit} className="flex flex-wrap items-end gap-x-4 gap-y-3">
+            <span className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
               {t('plan.fixedCityMode', { city: displayName(FIXED_DESTINATION) })}
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <label className="block text-sm">
-                <span className="text-slate-600">{t('plan.startDate')}</span>
-                <input
-                  type="date"
-                  required
-                  value={form.startDate}
-                  onChange={(e) => update('startDate', e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                />
-              </label>
-              <label className="block text-sm">
-                <span className="text-slate-600">{t('plan.endDate')}</span>
-                <input
-                  type="date"
-                  required
-                  value={form.endDate}
-                  onChange={(e) => update('endDate', e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                />
-              </label>
-            </div>
-
-            <div>
-              <span className="text-sm text-slate-600">{t('plan.preferences')}</span>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {SAME_CITY_PREF_OPTIONS.map((p) => (
-                  <Chip
-                    key={p.value}
-                    active={form.sameCityPrefs.includes(p.value)}
-                    onClick={() => togglePref(p.value)}
-                  >
-                    {t(p.label)}
-                  </Chip>
+            </span>
+            <label className="block text-sm">
+              <span className="text-slate-600">{t('plan.originPlace')}</span>
+              <select
+                value={form.originPlace}
+                onChange={(e) => update('originPlace', e.target.value)}
+                className="mt-1 w-40 rounded-lg border border-slate-300 px-3 py-2"
+              >
+                {ORIGIN_PRESETS.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {t(o.label)}
+                  </option>
                 ))}
-              </div>
+              </select>
+            </label>
+            <label className="block text-sm">
+              <span className="text-slate-600">{t('plan.startTime')}</span>
+              <input
+                type="time"
+                required
+                value={form.startTime}
+                onChange={(e) => update('startTime', e.target.value)}
+                className="mt-1 w-32 rounded-lg border border-slate-300 px-3 py-2"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="text-slate-600">{t('plan.startDate')}</span>
+              <input
+                type="date"
+                required
+                value={form.startDate}
+                onChange={(e) => update('startDate', e.target.value)}
+                className="mt-1 w-40 rounded-lg border border-slate-300 px-3 py-2"
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="text-slate-600">{t('plan.endDate')}</span>
+              <input
+                type="date"
+                required
+                value={form.endDate}
+                onChange={(e) => update('endDate', e.target.value)}
+                className="mt-1 w-40 rounded-lg border border-slate-300 px-3 py-2"
+              />
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-sm text-slate-600">{t('plan.preferences')}</span>
+              {SAME_CITY_PREF_OPTIONS.map((p) => (
+                <Chip
+                  key={p.value}
+                  active={form.sameCityPrefs.includes(p.value)}
+                  onClick={() => togglePref(p.value)}
+                >
+                  {t(p.label)}
+                </Chip>
+              ))}
             </div>
-
-            <div>
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-sm text-slate-600">{t('plan.visitFilter')}</span>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <Chip active={visitFilter === 'any'} onClick={() => setVisitFilter('any')}>
-                  {t('plan.visitAny')}
-                </Chip>
-                <Chip active={visitFilter === 'new'} onClick={() => setVisitFilter('new')}>
-                  {t('plan.visitNewOnly')}
-                </Chip>
-              </div>
+              <Chip active={visitFilter === 'any'} onClick={() => setVisitFilter('any')}>
+                {t('plan.visitAny')}
+              </Chip>
+              <Chip active={visitFilter === 'new'} onClick={() => setVisitFilter('new')}>
+                {t('plan.visitNewOnly')}
+              </Chip>
             </div>
-
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-rose-600 px-4 py-3 font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
+              className="rounded-lg bg-rose-600 px-6 py-2.5 font-medium text-white transition-colors hover:bg-rose-700 disabled:opacity-50"
             >
               {loading ? t('plan.searching') : t('plan.getRecommendations')}
             </button>
           </form>
         </section>
 
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">
-            {t('visit.trailMap')}
-          </h2>
-          <div className="mt-4 h-[420px] overflow-hidden rounded-xl border border-slate-200">
+        <section className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+          <div className="h-[560px]">
             {selectedDest ? (
               <DestinationMap
                 name={selectedName}
@@ -547,8 +569,9 @@ export default function PlanPage() {
                 onMovePoint={moveStop}
               />
             ) : (
-              <div className="flex h-full items-center justify-center bg-slate-50 p-6 text-center text-sm text-slate-400">
-                {t('plan.mapEmptyHint')}
+              <div className="flex h-full flex-col items-center justify-center gap-2 bg-slate-50 p-6 text-center text-sm text-slate-400">
+                <p className="text-base font-medium text-slate-500">{t('visit.trailMap')}</p>
+                <p>{t('plan.mapEmptyHint')}</p>
               </div>
             )}
           </div>

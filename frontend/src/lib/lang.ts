@@ -162,6 +162,13 @@ const zh: Dict = {
   'plan.nextStop': '下一站：{to}（{detail}）',
   'plan.arriveBy': '从{from}来（{detail}）',
   'plan.lastStop': '终点',
+  'plan.fareApprox': '约¥{n}',
+  'plan.originPlace': '出发地点',
+  'plan.startTime': '出发时间',
+  'origin.hakata': '博多站',
+  'origin.tenjin': '天神站',
+  'origin.airport': '福冈机场',
+  'origin.nikko': '日航酒店',
 
   // Recommend — messages
   'plan.msgNoMatch': '未找到符合「{summary}」的旅行目的地。',
@@ -367,6 +374,13 @@ const ja: Dict = {
   'plan.nextStop': '次：{to}（{detail}）',
   'plan.arriveBy': '{from}から（{detail}）',
   'plan.lastStop': '終点',
+  'plan.fareApprox': '約¥{n}',
+  'plan.originPlace': '出発地点',
+  'plan.startTime': '出発時刻',
+  'origin.hakata': '博多駅',
+  'origin.tenjin': '天神駅',
+  'origin.airport': '福岡空港',
+  'origin.nikko': 'ホテル日航福岡',
 
   // Recommend — messages
   'plan.msgNoMatch': '「{summary}」に合う旅行先が見つかりませんでした。',

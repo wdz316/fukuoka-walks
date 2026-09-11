@@ -48,6 +48,8 @@ export interface RouteOptions {
   days?: number;
   /** Show 宿泊 hotel stops. Callers hide these for day trips. */
   includeHotels?: boolean;
+  /** Starting point (hotel/station): prepended as the first stop of day 1. */
+  origin?: { name: string; lat: number; lng: number; timeLabel?: string };
 }
 
 export interface RouteLeg {
@@ -58,6 +60,8 @@ export interface RouteLeg {
   minutes: number;
   /** Concrete line, e.g. 地下鉄空港線（祇園駅→大濠公園駅）, when both ends share one. */
   line?: string;
+  /** Estimated fare in yen (walk = 0; transit = rough local-fare estimate). */
+  fare: number;
 }
 
 function haversineKm(
@@ -107,6 +111,7 @@ export function planLegs(
         mode: "walk",
         minutes: Math.max(1, Math.ceil((km / 4) * 60)),
         line,
+        fare: 0,
       });
     } else {
       legs.push({
@@ -115,6 +120,8 @@ export function planLegs(
         mode: "transit",
         minutes: Math.ceil((km / 15) * 60) + 5,
         line,
+        // Rough Fukuoka local-transit estimate (subway base + distance).
+        fare: Math.min(380, 210 + Math.round(km * 30)),
       });
     }
   }
@@ -194,11 +201,27 @@ export function buildRoute(
     });
     byDay.set(key, stops);
   }
-  if (byDay.size === 0) return [];
+  if (byDay.size === 0 && !opts?.origin) return [];
+  const origin = opts?.origin;
+  const ordered = [...byDay.entries()].sort(([x], [y]) => (x ?? 9999) - (y ?? 9999));
+  const result = ordered.map(([day, stops]) => ({ day, stops, extras: extraMap.get(day) ?? [] }));
+  if (origin) {
+    // Starting point goes first on day 1 so nobody teleports to stop 1.
+    const first = result.find((d) => d.day === 1) ?? result[0];
+    const originStop: RouteStop = {
+      name: origin.name,
+      timeLabel: origin.timeLabel ?? "出発",
+      transport: "",
+      kind: "attraction" as const,
+    };
+    if (first) {
+      first.stops.unshift(originStop);
+    } else {
+      result.unshift({ day: 1, stops: [originStop], extras: [] });
+    }
+  }
   // If only a null-day group exists but hotels were unassigned, keep as is.
-  return [...byDay.entries()]
-    .sort(([x], [y]) => (x ?? 9999) - (y ?? 9999))
-    .map(([day, stops]) => ({ day, stops, extras: extraMap.get(day) ?? [] }));
+  return result;
 }
 
 /**
