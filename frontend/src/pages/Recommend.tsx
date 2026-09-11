@@ -582,7 +582,7 @@ export default function PlanPage() {
         <section className="mt-10">
           <div>
             <div>
-                  {selectedDest.image_url ? (
+                  {selectedDest.image_url && (
                     <img
                       src={selectedDest.image_url}
                       alt={selectedDest.name}
@@ -591,10 +591,6 @@ export default function PlanPage() {
                         e.currentTarget.style.display = 'none'
                       }}
                     />
-                  ) : (
-                    <div className="h-56">
-                      <DestinationMap name={selectedName} />
-                    </div>
                   )}
                   <div className="p-5">
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -797,6 +793,7 @@ export default function PlanPage() {
                         <p className="mt-1 text-xs text-slate-400">{t('visit.checkinHint')}</p>
 
 <form onSubmit={handleAddCustom} className="mt-3 space-y-2">
+  <h4 className="text-sm font-semibold text-slate-500">{t('spot.addTitle')}</h4>
   <div className="flex flex-wrap items-end gap-2">
     <label className="flex flex-col text-sm">
       <span className="text-xs text-slate-500">{t('spot.name')}</span>
@@ -862,13 +859,19 @@ export default function PlanPage() {
                     )}
 
                     {selectedDest.attractions &&
-                      selectedDest.attractions.length > 0 && (
+                      selectedDest.attractions.filter(
+                        (a) => typeof a.day !== 'number' || days === 0 || a.day <= days,
+                      ).length > 0 && (
                         <div className="mt-5">
                           <h4 className="text-sm font-semibold text-slate-500">
                             {t('plan.sights')}
                           </h4>
                           <ul className="mt-2 space-y-2">
-                            {selectedDest.attractions.map((a, i) => (
+                            {selectedDest.attractions
+                              .filter(
+                                (a) => typeof a.day !== 'number' || days === 0 || a.day <= days,
+                              )
+                              .map((a, i) => (
                               <li
                                 key={i}
                                 className="rounded-lg border border-slate-200 p-3"
@@ -917,13 +920,20 @@ export default function PlanPage() {
                         </div>
                       )}
 
-                    {selectedDest.hotels && selectedDest.hotels.length > 0 && (
-                      <div className="mt-5">
-                        <h4 className="text-sm font-semibold text-slate-500">
-                          {t('plan.hotels')}
-                        </h4>
-                        <ul className="mt-2 space-y-2">
-                          {selectedDest.hotels.map((h, i) => (
+                    {selectedDest.hotels &&
+                      selectedDest.hotels.filter(
+                        (h) => typeof h.day !== 'number' || days === 0 || h.day <= days,
+                      ).length > 0 && (
+                        <div className="mt-5">
+                          <h4 className="text-sm font-semibold text-slate-500">
+                            {t('plan.hotels')}
+                          </h4>
+                          <ul className="mt-2 space-y-2">
+                            {selectedDest.hotels
+                              .filter(
+                                (h) => typeof h.day !== 'number' || days === 0 || h.day <= days,
+                              )
+                              .map((h, i) => (
                             <li
                               key={i}
                               className="rounded-lg border border-slate-200 p-3"
