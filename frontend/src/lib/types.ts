@@ -80,6 +80,27 @@ export interface Preferences {
   ai_provider?: AiProvider;
 }
 
+export interface Spot {
+  id: number;
+  name: string;
+  description?: string;
+  photo_url?: string;
+  lat: number;
+  lng: number;
+  destination_id?: number;
+  device_id?: string;
+  created_at?: string;
+}
+
+export interface SpotInput {
+  name: string;
+  description?: string;
+  photo_url?: string;
+  lat: number;
+  lng: number;
+  destination_id?: number;
+}
+
 export interface ApiError {
   detail: string;
 }
@@ -98,4 +119,8 @@ export interface Api {
   addVisit(input: VisitInput): Promise<Visit>;
   deleteVisit(id: number): Promise<void>;
   completeTrip(id: number, stops: string[]): Promise<Trip>;
+  listSpots(destinationId?: number): Promise<Spot[]>;
+  createSpot(input: SpotInput): Promise<Spot>;
+  uploadSpotPhoto(file: File): Promise<{ url: string }>;
+  deleteSpot(id: number): Promise<void>;
 }

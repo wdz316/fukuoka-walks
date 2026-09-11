@@ -18,6 +18,8 @@ export type {
   AiProvider,
   Visit,
   VisitInput,
+  Spot,
+  SpotInput,
 } from "./types";
 
 export const api: Api = USE_MOCK ? createMockApi() : createApi();

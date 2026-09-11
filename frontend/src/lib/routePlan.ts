@@ -10,6 +10,8 @@ export interface RouteStop {
   phone?: string;
   address?: string;
   note?: string;
+  description?: string;
+  photo_url?: string;
 }
 
 export interface RouteDay {
@@ -25,6 +27,10 @@ export interface RouteDay {
 export interface CustomPlace {
   name: string;
   note?: string;
+  description?: string;
+  photo_url?: string;
+  lat?: number;
+  lng?: number;
 }
 
 const SLOTS = [
@@ -212,6 +218,8 @@ export function mergeCustomPlaces(
     transport: "",
     kind: "custom" as const,
     note: c.note,
+    description: c.description,
+    photo_url: c.photo_url,
   }));
   return [...route, { day: null, isCustom: true, stops, extras: [] }];
 }

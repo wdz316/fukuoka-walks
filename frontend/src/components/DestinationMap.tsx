@@ -12,8 +12,9 @@ const DEFAULT_ZOOM = 2
 
 const VISITED_COLOR = '#d97706'
 const NOT_VISITED_COLOR = '#94a3b8'
+const CUSTOM_SPOT_COLOR = '#7c3aed'
 
-function orderedIcon(order: number, visited: boolean, included = true): L.DivIcon {
+function orderedIcon(order: number, visited: boolean, included = true, isCustomSpot = false): L.DivIcon {
   if (!included) {
     return L.divIcon({
       className: '',
@@ -23,9 +24,10 @@ function orderedIcon(order: number, visited: boolean, included = true): L.DivIco
       popupAnchor: [0, -10],
     })
   }
+  const bg = isCustomSpot ? CUSTOM_SPOT_COLOR : visited ? VISITED_COLOR : '#2563eb'
   return L.divIcon({
     className: '',
-    html: `<div style="min-width:22px;height:22px;border-radius:11px;background:${visited ? VISITED_COLOR : '#2563eb'};color:#fff;font-size:12px;font-weight:700;line-height:22px;text-align:center;padding:0 4px;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.35)">${order}</div>`,
+    html: `<div style="min-width:22px;height:22px;border-radius:11px;background:${bg};color:#fff;font-size:12px;font-weight:700;line-height:22px;text-align:center;padding:0 4px;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,0.35)">${order}</div>`,
     iconSize: [22, 22],
     iconAnchor: [11, 11],
     popupAnchor: [0, -12],
@@ -49,6 +51,8 @@ export interface MapPoint {
   /** False = tapped off the route (hollow marker, not connected). */
   included?: boolean
   station?: { name: string; line: string }
+  /** True = user-created 自建地点 (rendered purple, distinct from sightings). */
+  isCustomSpot?: boolean
 }
 
 interface DestinationMapProps {
@@ -175,7 +179,7 @@ function legDetail(t: (key: string, params?: Record<string, string | number>) =>
             <Marker
               key={p.name}
               position={[p.lat, p.lng]}
-              icon={orderedIcon(order, p.visited ?? false, included)}
+              icon={orderedIcon(order, p.visited ?? false, included, p.isCustomSpot)}
               draggable={interactive}
               eventHandlers={{
                 dragend: (e) => {
@@ -265,6 +269,10 @@ function legDetail(t: (key: string, params?: Record<string, string | number>) =>
               <span>{t('visit.routeExcluded')}</span>
             </div>
           )}
+          <div className="mt-1 flex items-center gap-2">
+            <span className="inline-block h-3 w-3 rounded-full" style={{ background: CUSTOM_SPOT_COLOR }} />
+            <span>{t('spot.customSpot')}</span>
+          </div>
           <div className="mt-1 flex items-center gap-2">
             <span
               className="inline-block h-0.5 w-4"

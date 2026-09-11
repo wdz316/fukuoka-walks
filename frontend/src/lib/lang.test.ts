@@ -45,4 +45,13 @@ describe('lang dictionary', () => {
   it('falls back to the key when missing', () => {
     expect(translate('zh', 'missing.key')).toBe('missing.key')
   })
+
+  it('translates 自建地点 spot keys in both languages', () => {
+    expect(translate('zh', 'spot.customSpot')).toBe('自建地点')
+    expect(translate('ja', 'spot.customSpot')).toBe('カスタムスポット')
+    expect(translate('zh', 'spot.addSpot')).toBe('添加地点')
+    expect(translate('ja', 'spot.uploadFailed')).toBe(
+      '写真のアップロードに失敗しました。テキスト情報を保存しました',
+    )
+  })
 })

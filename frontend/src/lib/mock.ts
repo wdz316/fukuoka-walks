@@ -6,6 +6,8 @@ import type {
   RecommendRequest,
   Recommendation,
   Season,
+  Spot,
+  SpotInput,
   Trip,
   Visit,
   VisitInput,
@@ -228,6 +230,8 @@ class MockApi implements Api {
   private preferences: Preferences = { ...defaultPreferences };
   private visits: Visit[] = [];
   private nextVisitId = 1;
+  private spots: Spot[] = [];
+  private nextSpotId = 1;
 
   private delay(): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, 150));
@@ -396,6 +400,45 @@ class MockApi implements Api {
 
   getDestinationById(id: number): Destination | undefined {
     return this.findByDestination(id);
+  }
+
+  async listSpots(destinationId?: number): Promise<Spot[]> {
+    await this.delay();
+    return this.spots
+      .filter((s) =>
+        destinationId != null ? s.destination_id === destinationId : true,
+      )
+      .map((s) => ({ ...s }));
+  }
+
+  async createSpot(input: SpotInput): Promise<Spot> {
+    await this.delay();
+    const spot: Spot = {
+      ...input,
+      id: this.nextSpotId++,
+      device_id: "mock-device",
+      created_at: new Date().toISOString(),
+    };
+    this.spots.push(spot);
+    return { ...spot };
+  }
+
+  async uploadSpotPhoto(file: File): Promise<{ url: string }> {
+    await this.delay();
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    for (const b of bytes) binary += String.fromCharCode(b);
+    const base64 = btoa(binary);
+    const mime = file.type || "application/octet-stream";
+    return { url: `data:${mime};base64,${base64}` };
+  }
+
+  async deleteSpot(id: number): Promise<void> {
+    await this.delay();
+    const idx = this.spots.findIndex((s) => s.id === id);
+    if (idx === -1) throw new Error("Spot not found");
+    this.spots.splice(idx, 1);
   }
 }
 

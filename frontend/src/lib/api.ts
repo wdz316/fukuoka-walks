@@ -7,6 +7,8 @@ import type {
   RecommendRequest,
   Recommendation,
   Season,
+  Spot,
+  SpotInput,
   Trip,
   Visit,
   VisitInput,
@@ -56,6 +58,13 @@ function assertRecommendation(v: unknown): asserts v is Recommendation {
 function assertVisit(v: unknown): asserts v is Visit {
   assertDefined(isObject(v) ? v.id : undefined, "Visit.id");
   assertDefined(isObject(v) ? v.attraction_name : undefined, "Visit.attraction_name");
+}
+
+function assertSpot(v: unknown): asserts v is Spot {
+  assertDefined(isObject(v) ? v.id : undefined, "Spot.id");
+  assertDefined(isObject(v) ? v.name : undefined, "Spot.name");
+  assertDefined(isObject(v) ? v.lat : undefined, "Spot.lat");
+  assertDefined(isObject(v) ? v.lng : undefined, "Spot.lng");
 }
 
 function narrowArray<T>(arr: unknown[], guard: (v: unknown) => asserts v is T): T[] {
@@ -210,6 +219,58 @@ class FetchApi implements Api {
     });
     assertTrip(data);
     return data;
+  }
+
+  async listSpots(destinationId?: number): Promise<Spot[]> {
+    const params = new URLSearchParams({ device_id: deviceId() });
+    if (destinationId != null) params.set("destination_id", String(destinationId));
+    const data = await this.fetchJson<unknown[]>(
+      `/api/spots?${params.toString()}`,
+    );
+    return narrowArray(data, assertSpot);
+  }
+
+  async createSpot(input: SpotInput): Promise<Spot> {
+    const data = await this.fetchJson<unknown>("/api/spots", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    assertSpot(data);
+    return data;
+  }
+
+  async uploadSpotPhoto(file: File): Promise<{ url: string }> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch(`${this.baseUrl}/api/spots/photo`, {
+        method: "POST",
+        body,
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        const err = errBody as ApiError;
+        throw new ApiClientError(err.detail ?? `HTTP ${res.status}`);
+      }
+      return (await res.json()) as { url: string };
+    } catch (err) {
+      if (controller.signal.aborted && !(err instanceof ApiClientError)) {
+        throw new ApiClientError("リクエストがタイムアウトしました（再試行してください）");
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async deleteSpot(id: number): Promise<void> {
+    await this.fetchJson<unknown>(
+      `/api/spots/${id}?device_id=${encodeURIComponent(deviceId())}`,
+      { method: "DELETE" },
+    );
   }
 }
 

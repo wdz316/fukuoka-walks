@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { FormEvent, ReactNode } from 'react'
+import type { ChangeEvent, FormEvent, ReactNode } from 'react'
 import DestinationMap, { type MapPoint } from '../components/DestinationMap'
 import {
   api,
   type Destination,
   type Recommendation,
   type RecommendRequest,
+  type Spot,
   type Trip,
   type Visit,
 } from '../lib'
@@ -19,6 +20,7 @@ import {
 import { countryLabel, regionLabel, seasonLabel } from '../lib/i18n'
 import { displayName } from '../lib/placeNames'
 import { buildRoute, mergeCustomPlaces, type CustomPlace } from '../lib/routePlan'
+import { coordinateFor } from '../lib/coordinates'
 import { useLang } from '../lib/lang'
 
 interface FormState {
@@ -60,7 +62,9 @@ function reasonList(reason: string | undefined): string[] {
 
 /** Merge user-added 自定地点 into the trip notes (name：note, 、-separated). */
 function customNoteText(customs: CustomPlace[]): string {
-  return customs.map((c) => `${c.name}${c.note ? `：${c.note}` : ''}`).join('、')
+  return customs
+    .map((c) => `${c.name}${c.description ?? c.note ? `：${c.description ?? c.note}` : ''}`)
+    .join('、')
 }
 
 function Chip({
@@ -104,6 +108,10 @@ export default function PlanPage() {
   const [customPlaces, setCustomPlaces] = useState<CustomPlace[]>([])
   const [customName, setCustomName] = useState('')
   const [customNote, setCustomNote] = useState('')
+  const [spotDescription, setSpotDescription] = useState('')
+  const [spotPhoto, setSpotPhoto] = useState<File | null>(null)
+  const [addingSpot, setAddingSpot] = useState(false)
+  const [savedSpots, setSavedSpots] = useState<Spot[]>([])
   const [checkingIn, setCheckingIn] = useState(false)
   const [visitError, setVisitError] = useState<string | null>(null)
   // 去过选项 + 地图调线状态
@@ -156,6 +164,15 @@ export default function PlanPage() {
       })
       .catch(() => {
         if (!cancelled) setVisits([])
+      })
+    const destId = selected?.destination.id
+    api
+      .listSpots(destId)
+      .then((list) => {
+        if (!cancelled) setSavedSpots(list)
+      })
+      .catch(() => {
+        if (!cancelled) setSavedSpots([])
       })
     return () => {
       cancelled = true
@@ -267,19 +284,75 @@ export default function PlanPage() {
     window.open(url, '_blank', 'noopener,noreferrer')
   }
 
-  function handleAddCustom(e: FormEvent) {
+  function handlePhotoChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) {
+      setSpotPhoto(null)
+      return
+    }
+    if (!file.type.startsWith('image/')) {
+      setVisitError(t('spot.wrongPhotoType'))
+      setSpotPhoto(null)
+      return
+    }
+    setVisitError(null)
+    setSpotPhoto(file)
+  }
+
+  async function handleAddCustom(e: FormEvent) {
     e.preventDefault()
     const name = customName.trim()
     if (!name) {
-      setVisitError(t('visit.emptyCustom'))
+      setVisitError(t('spot.nameRequired'))
       return
     }
-    const note = customNote.trim()
-    setCustomPlaces((prev) => [...prev, { name, note: note || undefined }])
-    setCustomName('')
-    setCustomNote('')
+    setAddingSpot(true)
     setVisitError(null)
-    setMessage(t('visit.customAdded', { name }))
+    setMessage(null)
+    try {
+      let photoUrl: string | undefined
+      if (spotPhoto) {
+        try {
+          const { url } = await api.uploadSpotPhoto(spotPhoto)
+          photoUrl = url
+        } catch {
+          setVisitError(t('spot.uploadFailed'))
+        }
+      }
+      const description = spotDescription.trim()
+      const note = customNote.trim()
+      const dest = selected?.destination.id
+      const center = coordinateFor(selectedName)
+      const spot = await api.createSpot({
+        name,
+        description: description || note || undefined,
+        lat: center?.lat ?? 0,
+        lng: center?.lng ?? 0,
+        destination_id: dest,
+        photo_url: photoUrl,
+      })
+      setSavedSpots((prev) => [...prev, spot])
+      setCustomPlaces((prev) => [
+        ...prev,
+        {
+          name: spot.name,
+          note: note || undefined,
+          description: spot.description,
+          photo_url: spot.photo_url,
+          lat: spot.lat,
+          lng: spot.lng,
+        },
+      ])
+      setCustomName('')
+      setCustomNote('')
+      setSpotDescription('')
+      setSpotPhoto(null)
+      setMessage(t('spot.added', { name }))
+    } catch (err: unknown) {
+      setVisitError(err instanceof Error ? err.message : t('error.processFailed'))
+    } finally {
+      setAddingSpot(false)
+    }
   }
 
   async function handleComplete() {
@@ -362,8 +435,22 @@ export default function PlanPage() {
         })
       }
     }
+    // User-created 自建地点 get their own coordinates (drag-adjusted when set).
+    for (const sp of savedSpots) {
+      if (seen.has(sp.name)) continue
+      seen.add(sp.name)
+      const overridden = coordOverrides[sp.name]
+      pts.push({
+        name: sp.name,
+        lat: overridden?.lat ?? sp.lat,
+        lng: overridden?.lng ?? sp.lng,
+        visited: visitedNames.has(sp.name),
+        included: !excludedStops.includes(sp.name),
+        isCustomSpot: true,
+      })
+    }
     return pts
-  }, [selectedDest, mergedRoute, visitedNames, excludedStops, coordOverrides])
+  }, [selectedDest, mergedRoute, visitedNames, excludedStops, coordOverrides, savedSpots])
   const tripCompleted = savedTrip?.status === 'completed'
 
   return (
@@ -662,8 +749,22 @@ export default function PlanPage() {
                                         )}
                                       </p>
                                       {s.kind === 'custom' ? (
-                                        s.note ? (
-                                          <p className="text-xs text-slate-500">{s.note}</p>
+                                        (s.photo_url || s.description || s.note) ? (
+                                          <span className="block">
+                                            {s.photo_url && (
+                                              <img
+                                                src={s.photo_url}
+                                                alt={s.name}
+                                                className="mb-1 h-16 w-24 rounded object-cover"
+                                                onError={(e) => {
+                                                  e.currentTarget.style.display = 'none'
+                                                }}
+                                              />
+                                            )}
+                                            <span className="text-xs text-slate-500">
+                                              {s.description ?? s.note}
+                                            </span>
+                                          </span>
                                         ) : null
                                       ) : (
                                         <p className="text-xs text-slate-500">
@@ -736,33 +837,68 @@ export default function PlanPage() {
                         </div>
                         <p className="mt-1 text-xs text-slate-400">{t('visit.checkinHint')}</p>
 
-                        <form onSubmit={handleAddCustom} className="mt-3 flex flex-wrap items-end gap-2">
-                          <label className="flex flex-col text-sm">
-                            <span className="text-xs text-slate-500">{t('visit.placeName')}</span>
-                            <input
-                              type="text"
-                              value={customName}
-                              onChange={(e) => setCustomName(e.target.value)}
-                              placeholder="例: もつ鍋 やまや"
-                              className="mt-1 w-48 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                            />
-                          </label>
-                          <label className="flex flex-col text-sm">
-                            <span className="text-xs text-slate-500">{t('visit.note')}</span>
-                            <input
-                              type="text"
-                              value={customNote}
-                              onChange={(e) => setCustomNote(e.target.value)}
-                              className="mt-1 w-48 rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                            />
-                          </label>
-                          <button
-                            type="submit"
-                            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-                          >
-                            {t('visit.addToRoute')}
-                          </button>
-                        </form>
+<form onSubmit={handleAddCustom} className="mt-3 space-y-2">
+  <div className="flex flex-wrap items-end gap-2">
+    <label className="flex flex-col text-sm">
+      <span className="text-xs text-slate-500">{t('spot.name')}</span>
+      <input
+        type="text"
+        value={customName}
+        onChange={(e) => setCustomName(e.target.value)}
+        placeholder="例: もつ鍋 やまや"
+        className="mt-1 w-48 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+      />
+    </label>
+    <label className="flex flex-col text-sm">
+      <span className="text-xs text-slate-500">{t('spot.description')}</span>
+      <input
+        type="text"
+        value={spotDescription}
+        onChange={(e) => setSpotDescription(e.target.value)}
+        className="mt-1 w-48 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+      />
+    </label>
+    {spotPhoto ? (
+      <div className="flex items-center gap-2">
+        <img
+          src={URL.createObjectURL(spotPhoto)}
+          alt={spotPhoto.name}
+          className="h-9 w-9 rounded object-cover"
+        />
+        <span className="max-w-32 truncate text-xs text-slate-500">{spotPhoto.name}</span>
+      </div>
+    ) : (
+      <label className="flex flex-col text-sm">
+        <span className="text-xs text-slate-500">{t('spot.photo')}</span>
+        <input
+          type="file"
+          accept="image/*"
+          onChange={handlePhotoChange}
+          className="mt-1 w-48 text-xs"
+        />
+      </label>
+    )}
+  </div>
+  {spotPhoto && (
+    <button
+      type="button"
+      onClick={() => setSpotPhoto(null)}
+      className="text-xs text-slate-500 underline hover:text-slate-700"
+    >
+      {t('spot.noPhoto')}
+    </button>
+  )}
+  <div className="flex items-center gap-3">
+    <button
+      type="submit"
+      disabled={addingSpot}
+      className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
+    >
+      {addingSpot ? t('plan.processing') : t('spot.addSpot')}
+    </button>
+    <span className="text-xs text-slate-400">{t('spot.dragHint')}</span>
+  </div>
+</form>
                       </div>
                     )}
 
