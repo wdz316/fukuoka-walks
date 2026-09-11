@@ -1,7 +1,7 @@
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { coordinateFor, type LatLng } from '../lib/coordinates'
 import { useLang } from '../lib/lang'
 import { fetchFootPath, fetchTransitPath } from '../lib/routing'
@@ -79,15 +79,24 @@ export default function DestinationMap({ name, points = [], onTogglePoint, onMov
   const orderOf = new Map(includedPoints.map((p, i) => [p.name, i + 1]))
 
   // Real geometry: walk legs via OSRM foot, transit legs via Valhalla
-  // multimodal. Either falls back to a straight dashed line when the
-  // public service has no data for the area.
+  // multimodal (auto fallback). Either falls back to a straight dashed
+  // line when the public service has no data for the area.
   const [footPaths, setFootPaths] = useState<Record<string, [number, number][]>>({})
   const [transitPaths, setTransitPaths] = useState<Record<string, [number, number][]>>({})
+  // Effect key: route content (names + coords), NOT array identity.
+  // Parent re-renders rebuild arrays every time; keying on identity would
+  // abort in-flight routing requests on each keystroke and the real
+  // geometry would never arrive (permanent straight lines).
+  const routeKey = JSON.stringify(includedPoints.map((p) => [p.name, p.lat, p.lng]))
+  const latestPoints = useRef(includedPoints)
+  latestPoints.current = includedPoints
   useEffect(() => {
     const ctrl = new AbortController()
     let cancelled = false
-    const byName = new Map(includedPoints.map((p) => [p.name, p]))
-    if (legs.length === 0) {
+    const pts = latestPoints.current
+    const liveLegs = planLegs(pts)
+    const byName = new Map(pts.map((p) => [p.name, p]))
+    if (liveLegs.length === 0) {
       setFootPaths({})
       setTransitPaths({})
       return () => ctrl.abort()
@@ -96,7 +105,7 @@ export default function DestinationMap({ name, points = [], onTogglePoint, onMov
       const foot: Record<string, [number, number][]> = {}
       const transit: Record<string, [number, number][]> = {}
       await Promise.all(
-        legs.map(async (l) => {
+        liveLegs.map(async (l) => {
           const a = byName.get(l.from)
           const b = byName.get(l.to)
           if (!a || !b) return
@@ -117,7 +126,7 @@ export default function DestinationMap({ name, points = [], onTogglePoint, onMov
       ctrl.abort()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [points])
+  }, [routeKey])
 
   if (!pos) return null
   const center: LatLng = { lat: pos.lat, lng: pos.lng }

@@ -384,22 +384,33 @@ export default function PlanPage() {
   const budget = selectedDest && days ? estimatedBudget(selectedDest, days) : null
   const reasons = reasonList(selected?.reason)
   const matchedInterests = selected?.matched_interests ?? []
-  const route = selectedDest
-    ? buildRoute(selectedDest.attractions, selectedDest.hotels, {
-        days: days > 0 ? days : undefined,
-        // Day trips never show overnight stays.
-        includeHotels: days === 0 || days >= 2,
-      })
-    : []
-  const mergedRoute = mergeCustomPlaces(route, customPlaces)
+  const route = useMemo(
+    () =>
+      selectedDest
+        ? buildRoute(selectedDest.attractions, selectedDest.hotels, {
+            days: days > 0 ? days : undefined,
+            // Day trips never show overnight stays.
+            includeHotels: days === 0 || days >= 2,
+          })
+        : [],
+    [selectedDest, days],
+  )
+  const mergedRoute = useMemo(
+    () => mergeCustomPlaces(route, customPlaces),
+    [route, customPlaces],
+  )
   // Map edits: excluded stops leave the route, dragged pins move it.
-  const effectiveRoute = mergedRoute
-    .map((d) => ({
-      ...d,
-      stops: d.stops.filter((s) => !excludedStops.includes(s.name)),
-      extras: d.extras.filter((s) => !excludedStops.includes(s.name)),
-    }))
-    .filter((d) => d.stops.length > 0 || d.extras.length > 0)
+  const effectiveRoute = useMemo(
+    () =>
+      mergedRoute
+        .map((d) => ({
+          ...d,
+          stops: d.stops.filter((s) => !excludedStops.includes(s.name)),
+          extras: d.extras.filter((s) => !excludedStops.includes(s.name)),
+        }))
+        .filter((d) => d.stops.length > 0 || d.extras.length > 0),
+    [mergedRoute, excludedStops],
+  )
   const visitedNames = useMemo(
     () => new Set(visits.map((v) => v.attraction_name)),
     [visits],
