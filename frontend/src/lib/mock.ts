@@ -245,6 +245,10 @@ class MockApi implements Api {
     return { status: "ok" };
   }
 
+  async getVersion(): Promise<{ sha: string }> {
+    return { sha: "mock" };
+  }
+
   async recommend(req: RecommendRequest): Promise<Recommendation[]> {
     await this.delay();
     const interests = req.interests ?? [];

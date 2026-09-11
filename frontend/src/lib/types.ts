@@ -107,6 +107,7 @@ export interface ApiError {
 
 export interface Api {
   healthCheck(): Promise<Record<string, unknown>>;
+  getVersion(): Promise<{ sha: string }>;
   recommend(req: RecommendRequest): Promise<Recommendation[]>;
   getDestinations(region?: string, season?: Season): Promise<Destination[]>;
   getTrips(): Promise<Trip[]>;

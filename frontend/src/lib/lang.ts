@@ -19,6 +19,7 @@ const zh: Dict = {
   'nav.home': '首页',
   'nav.plan': '旅行计划',
   'nav.history': '历史',
+  'nav.version': '版本',
 
   // Common
   'common.loading': '加载中...',
@@ -223,6 +224,7 @@ const ja: Dict = {
   'nav.home': 'ホーム',
   'nav.plan': '旅行計画',
   'nav.history': '履歴',
+  'nav.version': 'バージョン',
 
   // Common
   'common.loading': '読み込み中...',

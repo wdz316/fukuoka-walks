@@ -127,6 +127,10 @@ class FetchApi implements Api {
     return this.fetchJson<Record<string, unknown>>("/health");
   }
 
+  async getVersion(): Promise<{ sha: string }> {
+    return this.fetchJson<{ sha: string }>("/api/version");
+  }
+
   async recommend(req: RecommendRequest): Promise<Recommendation[]> {
     const data = await this.fetchJson<unknown[]>("/api/recommend", {
       method: "POST",

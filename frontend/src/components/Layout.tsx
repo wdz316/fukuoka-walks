@@ -1,4 +1,6 @@
 import { Link, NavLink, Outlet } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { api } from '../lib'
 import { useLang, type Lang } from '../lib/lang'
 
 const navItems = [
@@ -14,6 +16,21 @@ const LANGS: { value: Lang; label: string }[] = [
 
 export default function Layout() {
   const { t, lang, setLang } = useLang()
+  const [sha, setSha] = useState<string | null>(null)
+  useEffect(() => {
+    let on = true
+    api
+      .getVersion()
+      .then((v) => {
+        if (on) setSha(v.sha)
+      })
+      .catch(() => {
+        if (on) setSha(null)
+      })
+    return () => {
+      on = false
+    }
+  }, [])
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -62,7 +79,7 @@ export default function Layout() {
       </main>
 
       <footer className="border-t border-slate-200 py-6 text-center text-sm text-slate-500">
-        Travel Companion
+        Travel Companion{sha ? ` · ${t('nav.version')} ${sha}` : ''}
       </footer>
     </div>
   )

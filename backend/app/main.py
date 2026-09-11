@@ -1,6 +1,6 @@
 from contextlib import asynccontextmanager
 from pathlib import Path
-
+import os
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -74,6 +74,12 @@ def create_app() -> FastAPI:
     @app.get("/health")
     def health_check() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/api/version", include_in_schema=False)
+    def version() -> dict[str, str]:
+        """Deployed commit SHA for version checks (Render injects RENDER_GIT_COMMIT)."""
+        sha = os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("GIT_SHA", "dev")
+        return {"sha": sha[:12]}
 
     app.include_router(recommendations.router)
     app.include_router(trips.router)
